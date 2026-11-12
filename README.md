@@ -17,6 +17,12 @@ Cognitive decline leaves measurable footprints in speech: slower speech rate, lo
 - **Personal baseline** — per-user longitudinal history; flags metrics deviating beyond ±2σ
 - **Privacy-first** — everything runs locally; uploaded audio is deleted right after analysis (zero-retention)
 
+## 🎬 Demo — see it in action (2 min)
+
+![Demo: upload a Cantonese dialogue, detect speakers, auto-match patients, view per-patient reports and trends](docs/demo.gif)
+
+▶️ **[Watch the full 2-minute recording (MP4, 4.7 MB)](docs/demo.mp4)** — walks through: uploading a Cantonese dialogue → speaker detection → assigning voices to patients (with voiceprint auto-match) → per-patient biomarker reports → longitudinal trends. The GIF above is a sped-up preview.
+
 ## 🚀 Quickstart
 
 ### Prerequisites
