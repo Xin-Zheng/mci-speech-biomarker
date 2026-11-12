@@ -55,6 +55,16 @@ def test_tokenize_keeps_english_codeswitching():
     assert "school" in tokens
 
 
+def test_simplified_asr_output_is_normalized():
+    # Qwen3-ASR writes simplified chars (个/系/时); metrics must still work.
+    simp = "佢将嗰样嘢俾咗我，嗰个系我当时买嘅。嗯，即系嗰个嘢啦。"
+    feats = extract_linguistic(simp, backend="qwen3-asr", language="yue")
+    assert feats.pronoun_count >= 3  # 佢 / 我×2 (+嗰個 after normalization)
+    assert feats.vague_word_count >= 1  # 嗰樣嘢/個嘢 after normalization
+    assert feats.filler_count >= 2  # 嗯 + 即系
+    assert cantonese.normalize_traditional("嗰个系") == "嗰個係"
+
+
 def test_cantonese_metrics_flag_vague_speech():
     rich = extract_linguistic(RICH_YUE, backend="manual", language="yue")
     vague = extract_linguistic(VAGUE_YUE, backend="manual", language="yue")

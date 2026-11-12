@@ -16,3 +16,5 @@ data/profiles/*.jsonl
 !data/profiles/.gitkeep
 .env
 .DS_Store
+# External corpus checkout (HKCanCor) — not part of this repo
+hkcancor/

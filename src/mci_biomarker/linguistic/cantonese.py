@@ -23,14 +23,19 @@ PRONOUNS_YUE = {
     # Written-Chinese forms some ASR engines substitute
     "他", "她", "它", "我們", "你們", "他們", "她們", "這", "那",
     "這個", "那個", "這些", "那些", "誰", "什么", "甚麼",
+    # Simplified-character output (e.g. Qwen3-ASR writes 个/时/边个)
+    "我们", "你们", "他们", "她们", "这", "这个", "那个", "这些", "那些",
+    "呢个", "嗰个", "边个", "边度",
 }
 VAGUE_YUE = {
     "嘢", "嗰樣嘢", "嗰啲嘢", "乜嘢", "樣嘢", "個嘢", "呢樣嘢", "嗰種嘢",
     "東西", "那個東西", "什麼的", "等等",
+    "嗰样嘢", "样嘢", "个嘢", "呢样嘢", "东西", "那个东西", "什么的",
 }
 FILLERS_YUE = {
     "嗯", "誒", "呃", "啊", "唔", "即係", "即系", "嗰個", "呢個",
     "咁樣", "點講呢", "係咁", "嗱", "就是", "那個", "這個",
+    "诶", "嗰个", "呢个", "咁样", "点讲呢", "系咁", "那个", "这个", "咧",
 }
 FUNCTION_YUE = {
     # Colloquial particles / function words
@@ -41,6 +46,9 @@ FUNCTION_YUE = {
     # Written forms
     "的", "了", "是", "在", "和", "跟", "也", "不", "沒有", "著", "把",
     "很", "就", "還", "現在", "然後", "但是", "一個", "個",
+    # Simplified variants emitted by mainland-trained ASR (Qwen3-ASR, SenseVoice)
+    "系", "唔系", "个", "一个", "几", "时", "过", "还", "没有", "着",
+    "现在", "然后", "讲", "点", "么", "噶", "边", "系啲", "嚟", "来",
 }
 # Common content words (segmentation aid; picture-description friendly).
 COMMON_YUE_WORDS = {
@@ -68,8 +76,28 @@ def is_cjk(language: str | None) -> bool:
     return bool(language) and language.lower().strip() in CJK_LANGUAGES
 
 
+# Mainland-trained ASR (Qwen3-ASR, SenseVoice) emits simplified characters
+# (个/系/时), while Cantonese tools and lexicons use traditional (個/係/時).
+# Normalize the high-frequency, unambiguous characters before segmentation so
+# pronoun/filler/function-word counting works the same either way.
+_SIMP_TO_TRAD = str.maketrans({
+    "个": "個", "系": "係", "时": "時", "几": "幾", "样": "樣", "边": "邊",
+    "讲": "講", "点": "點", "过": "過", "还": "還", "么": "麼", "这": "這",
+    "们": "們", "没": "沒", "来": "來", "诶": "誒", "现": "現", "国": "國",
+    "门": "門", "开": "開", "关": "關", "见": "見", "听": "聽", "说": "說",
+    "话": "話", "读": "讀", "写": "寫", "买": "買", "卖": "賣", "车": "車",
+    "东": "東", "乐": "樂", "长": "長", "远": "遠", "进": "進", "运": "運",
+    "动": "動", "医": "醫", "药": "藥", "饭": "飯", "饮": "飲", "热": "熱",
+})
+
+
+def normalize_traditional(text: str) -> str:
+    return text.translate(_SIMP_TO_TRAD)
+
+
 def tokenize_cjk(text: str) -> list[str]:
     """Segment Cantonese/Chinese text into word tokens (code-switch safe)."""
+    text = normalize_traditional(text)
     segmented = _pycantonese_segment(text)
     if segmented is not None:
         return segmented
