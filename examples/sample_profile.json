@@ -1,0 +1,109 @@
+{
+  "profile_id": "3227cbb51560",
+  "user_id": "demo",
+  "created_at": "2026-11-12T03:47:30.417400+00:00",
+  "source_filename": "demo_speech.wav",
+  "disclaimer": "Cognitive Wellness Trend Report \u2014 non-diagnostic. Supports, does not replace, formal assessment (MMSE/MoCA, biomarker testing).",
+  "vad": {
+    "backend": "energy",
+    "segments": [
+      {
+        "start_s": 0.0,
+        "end_s": 1.41,
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start_s": 1.8,
+        "end_s": 3.27,
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start_s": 3.78,
+        "end_s": 5.4,
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start_s": 6.0,
+        "end_s": 7.68,
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start_s": 8.4,
+        "end_s": 10.2,
+        "speaker": "SPEAKER_00"
+      },
+      {
+        "start_s": 10.98,
+        "end_s": 12.87,
+        "speaker": "SPEAKER_00"
+      }
+    ],
+    "n_speakers": 1,
+    "target_speaker": "SPEAKER_00",
+    "total_duration_s": 12.9,
+    "speech_duration_s": 9.87,
+    "speech_ratio": 0.7651
+  },
+  "acoustic": {
+    "backend": "signal-fallback",
+    "speech_rate_syll_per_s": 3.5659,
+    "articulation_rate_syll_per_s": 4.6606,
+    "mean_pause_duration_s": 0.6,
+    "pause_count": 5,
+    "pause_rate_per_min": 23.2558,
+    "long_pause_count": 0,
+    "long_pause_rate_per_min": 0.0,
+    "pause_durations_s": [
+      0.39,
+      0.51,
+      0.6,
+      0.72,
+      0.78
+    ],
+    "f0_mean_hz": 131.1258,
+    "f0_std_hz": 5.5743,
+    "jitter_local": 0.0041,
+    "shimmer_local_db": 1.0242,
+    "hnr_db": null,
+    "loudness_mean": 0.1549,
+    "egemaps": null
+  },
+  "linguistic": {
+    "backend": "manual",
+    "transcript": "The mother is washing dishes at the sink while water overflows onto the floor. A boy standing on a stool reaches into the cookie jar, and his sister watches him carefully. There are plates and cups on the counter by the window, and um, that thing on the stool looks unsteady.",
+    "segments": [],
+    "mean_confidence": null,
+    "low_confidence": false,
+    "token_count": 51,
+    "type_count": 39,
+    "ttr": 0.7647,
+    "mattr": 0.77,
+    "mtld": 60.69,
+    "pronoun_count": 3,
+    "noun_count": 25,
+    "pronoun_to_noun_ratio": 0.12,
+    "vague_word_count": 2,
+    "vague_word_ratio": 0.0392,
+    "filler_count": 1,
+    "filler_ratio": 0.0196,
+    "repeated_word_rate": 0.0,
+    "sentence_count": 3,
+    "mean_sentence_length": 17.0,
+    "words_per_minute": 310.03
+  },
+  "baseline": {
+    "n_prior_sessions": 0,
+    "baseline_ready": false,
+    "z_scores": {},
+    "flagged": [],
+    "summary": "Baseline forming: 0/5 sessions collected. Keep recording regularly (SPEC: 30\u201390 days) before trend flags activate."
+  },
+  "provenance": {
+    "vad_backend": "energy",
+    "acoustic_backend": "signal-fallback",
+    "asr_backend": "manual",
+    "warnings": [],
+    "audio_retained": false,
+    "processing_time_s": 0.056
+  }
+}

@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+# Zero-retention: never commit raw audio or per-user profiles
+*.wav
+*.mp3
+*.m4a
+*.flac
+data/profiles/*.json
+data/profiles/*.jsonl
+!data/profiles/.gitkeep
+.env
+.DS_Store

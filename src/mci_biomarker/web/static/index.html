@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MCI Speech Biomarker — Cognitive Wellness Trend Report</title>
+<style>
+  :root{--bg:#0f172a;--panel:#1e293b;--panel2:#0b1220;--line:#334155;--text:#e2e8f0;--muted:#94a3b8;
+    --accent:#38bdf8;--good:#34d399;--warn:#fbbf24;--bad:#f87171}
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+  header{background:linear-gradient(120deg,#0c4a6e,#155e75);padding:20px 28px}
+  header h1{margin:0;font-size:22px} header p{margin:6px 0 0;color:#bae6fd;font-size:14px}
+  main{max-width:1100px;margin:0 auto;padding:20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}
+  .card h2{margin:0 0 12px;font-size:16px} .muted{color:var(--muted);font-size:13px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  input[type=text],textarea,select{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px}
+  textarea{width:100%;min-height:64px} input[type=file]{font-size:14px}
+  button{background:var(--accent);color:#082f49;border:0;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer;font-size:14px}
+  button:disabled{opacity:.5;cursor:wait} button.secondary{background:#334155;color:var(--text)}
+  #drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted)}
+  #drop.over{border-color:var(--accent);color:var(--text)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+  .metric{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .metric .k{font-size:12px;color:var(--muted)} .metric .v{font-size:22px;font-weight:700;margin:4px 0 2px}
+  .metric .d{font-size:12px;color:var(--muted)}
+  .flag{border-color:var(--bad)} .ok{color:var(--good)} .warn{color:var(--warn)} .err{color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:13px} th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:380px;font-size:12px}
+  .pill{display:inline-block;background:#334155;border-radius:999px;padding:2px 10px;font-size:12px;margin:2px 4px 2px 0}
+  .pill.bad{background:#7f1d1d;color:#fecaca} .hidden{display:none}
+  svg.spark{width:100%;height:90px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎙️ MCI Digital Speech Biomarker</h1>
+  <p>Cognitive Wellness Trend Report — non-diagnostic. Supports formal assessment (MMSE/MoCA); it does not replace it. Audio is processed locally and deleted immediately after analysis.</p>
+</header>
+<main>
+  <section class="card">
+    <h2>1 · Upload a speech recording (.wav)</h2>
+    <div id="drop">Drag &amp; drop a .wav file here, or choose below</div>
+    <div class="row" style="margin-top:14px">
+      <div><label for="file">Audio file</label><input id="file" type="file" accept=".wav,.mp3,.m4a,.flac,.ogg,audio/*" /></div>
+      <div><label for="user">User ID (longitudinal profile)</label><input id="user" type="text" value="demo" /></div>
+      <label style="margin-bottom:10px"><input id="save" type="checkbox" checked /> Save to baseline history</label>
+      <button id="analyze">Analyze speech</button>
+      <button id="demo" class="secondary">Try demo transcript</button>
+    </div>
+    <div style="margin-top:12px">
+      <label for="transcript">Optional known transcript (skips Whisper — useful offline or for a picture-description task)</label>
+      <textarea id="transcript" placeholder="e.g. The boy is taking cookies from the jar while his mother washes dishes..."></textarea>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label for="historyUser">View history for</label><select id="historyUser"></select></div>
+      <button id="refresh" class="secondary">Refresh trends</button>
+      <span id="status" class="muted"></span>
+    </div>
+  </section>
+
+  <section id="report" class="card hidden">
+    <h2>2 · Biomarker report <span id="reportMeta" class="muted"></span></h2>
+    <div id="alerts"></div>
+    <h3>Track A — Acoustic / paralinguistic</h3>
+    <div id="acousticGrid" class="grid"></div>
+    <h3>Track B — Linguistic / semantic</h3>
+    <div id="lingGrid" class="grid"></div>
+    <h3>Personal baseline comparison</h3>
+    <p id="baselineSummary"></p>
+    <div id="zTable"></div>
+    <h3>Transcript</h3>
+    <pre id="transcriptOut">(none)</pre>
+    <h3>Provenance &amp; warnings</h3>
+    <div id="prov"></div>
+    <p class="row"><button id="download" class="secondary">Download JSON profile</button>
+    <button id="toggleJson" class="secondary">Show raw JSON</button></p>
+    <pre id="rawJson" class="hidden"></pre>
+  </section>
+
+  <section class="card">
+    <h2>3 · Longitudinal trends <span id="trendMeta" class="muted"></span></h2>
+    <p class="muted">Each chart tracks one biomarker across saved sessions for the selected user. Flags activate after the personal baseline forms (≥5 sessions; SPEC recommends 30–90 days).</p>
+    <div id="trends"></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let lastProfile = null, droppedFile = null;
+
+const ACOUSTIC_CARDS = [
+  ["speech_rate_syll_per_s","Speech rate","syll/s (incl. pauses)"],
+  ["articulation_rate_syll_per_s","Articulation rate","syll/s (speech only)"],
+  ["mean_pause_duration_s","Mean pause","seconds"],
+  ["pause_rate_per_min","Pauses / min","silent gaps ≥0.25s"],
+  ["f0_mean_hz","Mean F₀","Hz"],
+  ["jitter_local","Jitter","pitch perturbation"],
+  ["shimmer_local_db","Shimmer","dB"],
+];
+const LING_CARDS = [
+  ["ttr","TTR","type–token ratio"],
+  ["mattr","MATTR","moving-avg TTR"],
+  ["mtld","MTLD","lexical diversity"],
+  ["pronoun_to_noun_ratio","Pronoun : noun","referential vagueness"],
+  ["filler_ratio","Filler ratio","um / uh per token"],
+  ["words_per_minute","Words / min","speech output"],
+];
+
+function fmt(v){ return (v===null||v===undefined) ? "—" : (typeof v==="number" ? (Math.abs(v)>=100? v.toFixed(1) : v.toFixed(3)) : v); }
+function card([key,label,desc], src, flagged){
+  const z = lastProfile?.baseline?.z_scores?.[key];
+  const ztxt = z===undefined ? "" : ` · z=${z>=0?"+":""}${z.toFixed(2)}σ`;
+  return `<div class="metric ${flagged.includes(key)?"flag":""}"><div class="k">${label}</div>`+
+    `<div class="v">${fmt(src[key])}</div><div class="d">${desc}${ztxt}</div></div>`;
+}
+function setStatus(msg, cls="muted"){ const s=$("status"); s.textContent=msg; s.className=cls; }
+
+function renderProfile(p){
+  lastProfile = p;
+  $("report").classList.remove("hidden");
+  $("reportMeta").textContent = `· ${p.source_filename||""} · user ${p.user_id} · ${new Date(p.created_at).toLocaleString()}`;
+  const flagged = p.baseline?.flagged || [];
+  $("alerts").innerHTML =
+    (p.linguistic?.low_confidence ? `<p class="warn">⚠ Low ASR confidence — linguistic metrics down-weighted; lean on acoustic markers.</p>` : "") +
+    (flagged.length ? `<p class="err">⚠ ${flagged.length} biomarker(s) beyond ±2σ of personal baseline: ${flagged.join(", ")}</p>` :
+      `<p class="ok">✓ No baseline-deviation flags this session.</p>`);
+  $("acousticGrid").innerHTML = ACOUSTIC_CARDS.map(c=>card(c,p.acoustic,flagged)).join("") +
+    `<div class="metric"><div class="k">Speech segments</div><div class="v">${p.vad.segments.length}</div>`+
+    `<div class="d">${p.vad.speech_duration_s}s speech / ${p.vad.total_duration_s}s total · ${p.vad.backend} VAD · ${p.vad.n_speakers} speaker(s)</div></div>`;
+  $("lingGrid").innerHTML = LING_CARDS.map(c=>card(c,p.linguistic,flagged)).join("") +
+    `<div class="metric"><div class="k">Tokens / types</div><div class="v">${p.linguistic.token_count} / ${p.linguistic.type_count}</div>`+
+    `<div class="d">pronouns ${p.linguistic.pronoun_count} · nouns ${p.linguistic.noun_count} · ASR conf ${fmt(p.linguistic.mean_confidence)}</div></div>`;
+  $("baselineSummary").textContent = p.baseline?.summary || "";
+  const z = p.baseline?.z_scores || {};
+  $("zTable").innerHTML = Object.keys(z).length ?
+    `<table><tr><th>Metric</th><th>z-score vs baseline</th><th>Status</th></tr>` +
+    Object.entries(z).map(([k,v])=>`<tr><td>${k}</td><td>${v>=0?"+":""}${v.toFixed(2)}σ</td><td>${Math.abs(v)>=2?'<span class="err">flagged</span>':'<span class="ok">in range</span>'}</td></tr>`).join("") + `</table>`
+    : `<p class="muted">Baseline still forming — z-scores appear after enough sessions.</p>`;
+  $("transcriptOut").textContent = p.linguistic?.transcript || "(no transcript — install faster-whisper or paste a transcript above)";
+  $("prov").innerHTML =
+    ["vad_backend","acoustic_backend","asr_backend"].map(k=>`<span class="pill">${k}: ${p.provenance[k]}</span>`).join("") +
+    `<span class="pill">audio_retained: ${p.provenance.audio_retained}</span>` +
+    (p.provenance.warnings||[]).map(w=>`<span class="pill bad">${w}</span>`).join("") +
+    (p.acoustic.egemaps ? `<p class="muted">eGeMAPS: ${Object.keys(p.acoustic.egemaps).length} functionals included in JSON.</p>` : "");
+  $("rawJson").textContent = JSON.stringify(p, null, 2);
+}
+
+function sparkline(values, label){
+  const pts = values.map((v,i)=>[i,v]).filter(([,v])=>v!==null&&v!==undefined);
+  if(pts.length<1) return "";
+  const w=520,h=90,pad=10, vals=pts.map(([,v])=>v);
+  const min=Math.min(...vals), max=Math.max(...vals), span=(max-min)||1;
+  const X=i=> pad + (values.length<=1? w/2 : i*(w-2*pad)/(values.length-1));
+  const Y=v=> h-pad - (v-min)*(h-2*pad)/span;
+  const line = pts.map(([i,v])=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+  const dots = pts.map(([i,v])=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="#38bdf8"><title>${label}: ${fmt(v)}</title></circle>`).join("");
+  return `<div style="margin-bottom:14px"><div class="muted">${label} · latest ${fmt(pts[pts.length-1][1])}</div>`+
+    `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${line}" fill="none" stroke="#38bdf8" stroke-width="2"/>${dots}</svg></div>`;
+}
+
+async function loadUsers(selectId){
+  try{
+    const r = await fetch("/api/users"); const d = await r.json();
+    const sel = $(selectId); const cur = sel.value || $("user").value;
+    sel.innerHTML = (d.users.length? d.users : [cur]).map(u=>`<option ${u===cur?"selected":""}>${u}</option>`).join("");
+  }catch(e){ /* offline */ }
+}
+async function loadTrends(){
+  const u = $("historyUser").value || $("user").value || "demo";
+  try{
+    const r = await fetch(`/api/users/${encodeURIComponent(u)}/trends`); const d = await r.json();
+    $("trendMeta").textContent = `· user ${u} · ${d.labels.length} session(s)`;
+    const order = ["speech_rate_syll_per_s","mean_pause_duration_s","pause_rate_per_min","ttr","mtld","pronoun_to_noun_ratio","filler_ratio","words_per_minute"];
+    $("trends").innerHTML = d.labels.length
+      ? order.map(k=>sparkline(d.metrics[k]||[], `${k} (${d.directions[k]||""})`)).join("")
+      : `<p class="muted">No saved sessions yet for “${u}”. Analyze a recording with “Save to baseline history” checked.</p>`;
+  }catch(e){ $("trends").innerHTML = `<p class="err">Could not load trends: ${e.message}</p>`; }
+}
+
+async function analyze(){
+  const f = droppedFile || $("file").files[0];
+  if(!f){ setStatus("Choose or drop an audio file first.","err"); return; }
+  const btn = $("analyze"); btn.disabled = true; setStatus("Analyzing… (VAD → acoustic + linguistic extraction)");
+  try{
+    const fd = new FormData();
+    fd.append("file", f); fd.append("user_id", $("user").value||"anonymous");
+    fd.append("transcript", $("transcript").value); fd.append("save", $("save").checked);
+    const r = await fetch("/api/analyze", {method:"POST", body:fd});
+    const d = await r.json().catch(()=>({detail:"Invalid server response"}));
+    if(!r.ok) throw new Error(d.detail || r.statusText);
+    renderProfile(d); setStatus("Analysis complete ✓","ok");
+    await loadUsers("historyUser"); $("historyUser").value = d.user_id; await loadTrends();
+  }catch(e){ setStatus("Analysis failed: "+e.message,"err"); }
+  finally{ btn.disabled = false; }
+}
+
+$("analyze").addEventListener("click", analyze);
+$("refresh").addEventListener("click", async ()=>{ await loadUsers("historyUser"); await loadTrends(); });
+$("historyUser").addEventListener("change", loadTrends);
+$("toggleJson").addEventListener("click", ()=> $("rawJson").classList.toggle("hidden"));
+$("download").addEventListener("click", ()=>{
+  if(!lastProfile) return;
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(lastProfile,null,2)],{type:"application/json"}));
+  a.download=`biomarker-${lastProfile.user_id}-${lastProfile.profile_id}.json`; a.click();
+});
+$("demo").addEventListener("click", ()=>{
+  $("transcript").value = "The mother is washing dishes at the sink and the water is overflowing. " +
+    "A boy is standing on a stool taking cookies from the jar, and a girl is reaching up for that thing. " +
+    "Um, the stool looks like it might fall over. There are cups and plates on the counter near the window.";
+  setStatus("Demo transcript filled — now choose any short .wav and click Analyze.");
+});
+const drop = $("drop");
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop", e=>{ droppedFile = e.dataTransfer.files[0]; if(droppedFile) drop.textContent = "Ready: "+droppedFile.name; });
+$("file").addEventListener("change", ()=>{ droppedFile=null; if($("file").files[0]) drop.textContent="Ready: "+$("file").files[0].name; });
+loadUsers("historyUser").then(loadTrends);
+</script>
+</body>
+</html>
