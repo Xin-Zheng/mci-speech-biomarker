@@ -101,7 +101,7 @@ src/mci_biomarker/
 ├── pipeline.py           # wav → profile orchestrator
 ├── cli.py                # `mci-analyze`
 ├── audio/                # ingest (16 kHz mono) · VAD/diarization · eGeMAPS + pauses
-├── linguistic/           # Whisper ASR · lexical diversity & pronoun ratio
+├── linguistic/           # ASR chain (Qwen3/SenseVoice/Whisper) · EN + 粵語 metrics
 ├── baseline/             # JSONL history + z-score anomaly flags
 └── web/                  # FastAPI app (`mci-serve`) + single-page UI
 ```
@@ -110,32 +110,73 @@ src/mci_biomarker/
 
 The acoustic track (eGeMAPS, pauses, speech rate) is language-independent and
 works for Cantonese out of the box. Cantonese mode switches the speech-to-text
-and linguistic tracks:
+and linguistic tracks to Cantonese-native engines and metrics.
+
+### Step 1 — Install the Cantonese extras
 
 ```bash
-uv pip install -e ".[cantonese]"        # PyCantonese word segmentation
-uv pip install -e ".[asr-qwen]"         # recommended ASR (or .[asr-sensevoice])
-
-uv run mci-analyze recording.wav --language yue --user-id demo --pretty
-# Web UI: pick 「粵語 (Cantonese)」 in the Language dropdown
+uv pip install -e ".[cantonese]"     # PyCantonese word segmentation (small)
+uv pip install -e ".[asr-qwen]"      # ★ recommended ASR: Qwen3-ASR (Apache-2.0)
+# Alternatives:
+uv pip install -e ".[asr-sensevoice]"  # SenseVoice — lighter/faster, also native 粵語
+uv pip install -e ".[asr]"             # faster-whisper only (see caveat below)
 ```
 
-- **ASR chain (auto):** [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR)
-  (Apache-2.0, preserves spoken Cantonese characters like 佢/嘅/嘢) →
+Install just **one** ASR extra. The first Cantonese run downloads its model
+from Hugging Face (~1–4 GB, one time, then fully offline). On a modern laptop
+CPU, Qwen3-ASR-0.6B transcribes ~1 minute of audio in ~15 seconds.
+
+### Step 2a — Use it in the Web UI
+
+1. Start the server: `uv run mci-serve --port 8000` → open http://127.0.0.1:8000
+2. Set **Language 語言** to **「粵語 (Cantonese)」**
+3. Drag & drop the Cantonese recording, set a User ID, click **Analyze speech**
+4. The report shows `language: yue` and which ASR engine ran (`qwen3-asr`, …)
+
+No recording yet? Click **Try demo transcript** with 粵語 selected — it fills a
+Cantonese picture-description sample so you can explore the metrics with any clip.
+
+### Step 2b — Use it from the CLI
+
+```bash
+# Audio only — Qwen3-ASR transcribes, full biomarker profile as JSON
+uv run mci-analyze recording.wav --language yue --user-id demo --pretty
+
+# You already have a transcript (skips ASR entirely — works with no ASR extra)
+uv run mci-analyze recording.wav --language yue \
+  --transcript "個媽媽喺廚房度洗碗，個男仔企喺張凳上面攞曲奇..." --pretty
+
+# Save into the user's longitudinal baseline; force a specific ASR engine
+uv run mci-analyze recording.wav --language yue --asr-backend qwen3 --save
+```
+
+### How it works & how to read Cantonese metrics
+
+- **ASR chain (auto):** [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR) →
   [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) → faster-whisper
-  with the `yue` token (large-v3 generation; English-only `*.en` models are
-  auto-switched). Force one engine with `--asr-backend qwen3|sensevoice|whisper`.
-  First use downloads the model (~1–4 GB) from Hugging Face.
+  with the `yue` token (large-v3 generation only; English-only `*.en` models
+  are auto-switched). Each engine fails soft to the next; if none is
+  installed you still get the full acoustic report with a warning.
 - **Why not Whisper alone?** Whisper often rewrites spoken Cantonese into
-  standard written Chinese （佢→他、嘅→的）, erasing exactly the colloquial
-  pronouns and vague words our biomarkers measure.
-- **Linguistic metrics** use Cantonese segmentation (PyCantonese, with a
-  built-in max-match fallback) and Cantonese lexicons: pronouns 我/你/佢/哋，
-  vague words 嘢/嗰樣嘢， fillers 嗯/即係. English code-switching is handled.
+  standard written Chinese （佢→他、嘅→的、嘢→東西）, erasing exactly the
+  colloquial pronouns and vague words our biomarkers measure. Qwen3-ASR and
+  SenseVoice keep the spoken forms.
+- **Metrics** run on segmented Cantonese words (PyCantonese; built-in
+  max-match fallback): pronouns 我/你/佢/我哋 vs concrete nouns
+  (pronoun:noun ↑ = more 「嗰個/嗰樣嘢」-style substitution), vague words
+  嘢/嗰樣嘢， fillers 嗯/誒/即係， plus TTR/MATTR/MTLD. English code-switching
+  (「我個friend…」) is kept as tokens. Simplified-character ASR output
+  （个/系/时） is auto-normalized to traditional before scoring.
 - **Baselines never mix languages** — English and Cantonese sessions for the
   same user form separate baselines.
-- **Tonal caveat:** Cantonese has 6 lexical tones, so interpret F₀ mean/std
-  against the speaker's own Cantonese baseline, not English norms.
+- **Recording tips:** 1–3 minutes in a quiet room; describing a picture or
+  recounting your day both work. Cantonese has 6 lexical tones, so read
+  F₀ metrics against the speaker's own Cantonese baseline, not English norms.
+- **Try real data:** the [HKCanCor corpus](https://github.com/fcbond/hkcancor)
+  (CC BY) ships sample Cantonese recordings with gold transcripts — great for
+  smoke-testing. We validated against its monologue sample: Qwen3-ASR
+  transcript metrics (tokens, TTR, MATTR) closely matched gold-transcript
+  metrics.
 
 ### Optional: speaker diarization (pyannote)
 
@@ -168,6 +209,7 @@ uv run ruff check src tests
 | `openSMILE unavailable`, `signal-fallback` backend | Install acoustics: `uv pip install -e ".[acoustic]"` |
 | `pyannote … HF_TOKEN not set` | Expected without diarization setup; energy VAD is used instead |
 | Empty transcript on a real recording | Try a larger model: `--whisper-model small` (and `--language` if not English) |
+| Cantonese transcript empty or in 書面語 | Use `--language yue` with `.[asr-qwen]` installed; Whisper-only setups need large-v3+ |
 | Port 8000 already in use | `uv run mci-serve --port 8001` |
 
 ## 🗺️ Roadmap
