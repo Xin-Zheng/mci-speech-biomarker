@@ -51,6 +51,7 @@ def transcribe(
     cfg: WhisperConfig,
     language: str | None = None,
     warnings: list[str] | None = None,
+    segment_cb=None,
 ) -> tuple[str, list[TranscriptSegment], float | None, str]:
     """Return (transcript, segments, mean_confidence, backend)."""
     warnings = warnings if warnings is not None else []
@@ -69,7 +70,9 @@ def transcribe(
             if backend == "sensevoice":
                 text, segments = _transcribe_sensevoice(waveform, cfg, lang, duration_s)
                 return text, segments, None, "sensevoice"
-            text, segments, mean_conf = _transcribe_whisper(waveform, cfg, lang, warnings)
+            text, segments, mean_conf = _transcribe_whisper(
+                waveform, cfg, lang, warnings, segment_cb
+            )
             return text, segments, mean_conf, "faster-whisper"
         except Exception as exc:
             warnings.append(f"{backend} ASR unavailable/failed ({exc}).")
@@ -191,6 +194,7 @@ def _transcribe_whisper(
     cfg: WhisperConfig,
     lang: str,
     warnings: list[str],
+    segment_cb=None,
 ) -> tuple[str, list[TranscriptSegment], float | None]:
     model_name = cfg.model
     whisper_lang: str | None = lang if lang != "en" else "en"
@@ -225,6 +229,8 @@ def _transcribe_whisper(
                 confidence=conf,
             )
         )
+        if segment_cb is not None:
+            segment_cb(len(segments))
     transcript = " ".join(s.text for s in segments).strip()
     confs = [s.confidence for s in segments if s.confidence is not None]
     mean_conf = round(float(np.mean(confs)), 4) if confs else None

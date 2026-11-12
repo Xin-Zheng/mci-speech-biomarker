@@ -100,7 +100,7 @@ src/mci_biomarker/
 ├── schemas.py            # Biomarker profile — the JSON contract
 ├── pipeline.py           # wav → profile orchestrator
 ├── cli.py                # `mci-analyze`
-├── audio/                # ingest (16 kHz mono) · VAD/diarization · eGeMAPS + pauses
+├── audio/                # ingest (16 kHz mono) · VAD · diarization · eGeMAPS + pauses
 ├── linguistic/           # ASR chain (Qwen3/SenseVoice/Whisper) · EN + 粵語 metrics
 ├── baseline/             # JSONL history + z-score anomaly flags
 └── web/                  # FastAPI app (`mci-serve`) + single-page UI
@@ -178,20 +178,58 @@ uv run mci-analyze recording.wav --language yue --asr-backend qwen3 --save
   transcript metrics (tokens, TTR, MATTR) closely matched gold-transcript
   metrics.
 
-### Optional: speaker diarization (pyannote)
+## 👥 Multiple people & patients
 
-To isolate one speaker in multi-speaker home audio:
+### Tell voices apart in one recording
 
-```bash
-uv pip install -e ".[diarize]"
-export HF_TOKEN=<your-huggingface-token>   # accept the pyannote model terms on HF first
-uv run mci-analyze recording.wav --diarization pyannote
-```
+Real assessments often include family members or clinicians. Multi-speaker
+mode diarizes the recording — **who spoke when** — and produces **one
+biomarker profile per person**, each saved under that patient.
+
+- **Web UI:** choose *People in recording → Multiple people*, upload, click
+  **🔍 Detect speakers**, assign each voice (duration + pitch shown, with a
+  color timeline) to an existing or new patient, then **Analyze all speakers**.
+- **Voiceprint auto-matching:** every saved analysis enrolls/refreshes the
+  patient's voiceprint (a 41-dim MFCC+pitch centroid in
+  `data/voiceprints.json` — derived features, not audio). On the next
+  multi-speaker upload, detected voices are compared against enrolled
+  patients; confident matches (conservative cosine threshold + margin) are
+  **pre-selected automatically** with a "✓ Auto-matched voice · 98% similar"
+  badge — you can always override. The CLI applies the same auto-assignment
+  when no `--speaker-map` entry is given.
+- **CLI:**
+  ```bash
+  uv run mci-analyze dialogue.wav --speakers all \
+    --speaker-map "SPEAKER_00=chan-tai,SPEAKER_01=lee-mui" --save --pretty
+  ```
+  Unassigned voices get ids like `recording-speaker-01`.
+
+Diarization backends (`--diarization auto`, tried in order):
+
+1. **pyannote** (most accurate) — `uv pip install -e ".[diarize]"`, set
+   `HF_TOKEN` after accepting the model terms on Hugging Face.
+2. **cluster** (built-in fallback, no downloads) — MFCC + pitch voice
+   embeddings with agglomerative clustering. Separates distinct voices
+   (different pitch/timbre) well; very similar voices may merge — use
+   pyannote for those.
+3. **energy** — single-speaker assumption.
+
+> ⚠️ In conversations, per-speaker *pause* metrics include turn-taking gaps
+> while others were speaking — the report flags this; interpret accordingly.
+
+### Patient reports
+
+The **Patients 患者** tab lists everyone with session counts, last-session
+date, and baseline status. Click a patient for their page: latest full
+report, longitudinal trend charts, a session-by-session table (with
+per-session JSON download), and editable display name/notes. Anyone with
+saved sessions appears automatically; names/notes live in
+`data/patients.json` alongside the git-ignored profile store.
 
 ## 🔒 Privacy
 
 - **Local-first:** no audio or transcript ever leaves your machine (model downloads from Hugging Face on first use are the only network traffic).
-- **Zero-retention audio:** web uploads are processed from a temp file and deleted immediately; only JSON profiles persist under `data/profiles/` (git-ignored).
+- **Zero-retention audio:** web uploads are processed from a temp file and deleted immediately; only JSON profiles persist under `data/profiles/` (git-ignored). Voiceprints (`data/voiceprints.json`, also git-ignored) are 41-number acoustic averages used for patient auto-matching — speech cannot be reconstructed from them, but treat them as biometric data and get consent.
 - **Low-confidence gating:** if Whisper confidence drops (e.g. strong dialect/accent), linguistic metrics are flagged and the report leans on acoustic markers instead.
 
 ## 🧪 Tests
@@ -212,12 +250,76 @@ uv run ruff check src tests
 | Cantonese transcript empty or in 書面語 | Use `--language yue` with `.[asr-qwen]` installed; Whisper-only setups need large-v3+ |
 | Port 8000 already in use | `uv run mci-serve --port 8001` |
 
-## 🗺️ Roadmap
+## 🗺️ Roadmap — future improvements & candidate libraries
 
-- Syntactic complexity (dependency-parse depth, clause density)
-- Semantic coherence / topic-drift & repeated-question detection
-- PDF export of the trend report
-- EWMA / Isolation-Forest anomaly scoring alongside z-scores
+Organized by pipeline layer. Everything listed is open-source unless marked
+💲 (paid API). **Now** = highest value/effort ratio; **Later** = research-grade.
+
+### 🎙️ Capture, VAD & denoising
+
+| Candidate | What it unlocks | When |
+|---|---|---|
+| [Silero VAD](https://github.com/snakers4/silero-vad) | Neural VAD — far fewer false alarms on TV/kitchen noise than energy VAD | Now |
+| [noisereduce](https://github.com/timsainb/noisereduce) / RNNoise | Home-noise suppression before feature extraction | Next |
+| Streaming capture (FunASR streaming / [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)) | Analyze while recording; on-device edge deployment | Later |
+
+### 🗣️ Speaker diarization & identity
+
+| Candidate | What it unlocks | When |
+|---|---|---|
+| [pyannote.audio](https://github.com/pyannote/pyannote-audio) *(already wired, optional)* | Best-in-class diarization incl. overlapping speech | Now |
+| [SpeechBrain](https://speechbrain.github.io/) ECAPA-TDNN embeddings | Replace MFCC clustering with neural voiceprints | Next |
+| [3D-Speaker CAM++](https://github.com/modelscope/3D-Speaker) (via FunASR) | Strong Chinese-speaker embeddings + diarization pipeline | Next |
+| Neural voiceprint enrollment (ECAPA/CAM++ upgrade of current MFCC voiceprints) | More robust auto-recognition across microphones/rooms | Next |
+| [NVIDIA NeMo](https://github.com/NVIDIA/NeMo) diarization | GPU-scale diarization for long recordings | Later |
+
+### ✍️ ASR / transcription
+
+| Candidate | What it unlocks | When |
+|---|---|---|
+| [Qwen3-ForcedAligner](https://github.com/QwenLM/Qwen3-ASR) | Word-level timestamps → precise pause/articulation alignment | Now |
+| Qwen3-ASR-1.7B (vs current 0.6B) | Better Cantonese accuracy on elderly/noisy speech | Now |
+| Fine-tuned Cantonese Whisper (e.g. [khleeloo/whisper-large-v3-cantonese](https://huggingface.co/khleeloo/whisper-large-v3-cantonese), CT2-converted) | Colloquial-faithful transcripts inside the faster-whisper path | Next |
+| Cloud ASR 💲 (Azure `zh-HK`, Google `yue-Hant-HK`, Deepgram, Tencent Cloud) | Highest Cantonese accuracy — **breaks local-only privacy; needs consent + PDPO review** | Later |
+
+### 🔊 Acoustic biomarkers (Track A)
+
+| Candidate | What it unlocks | When |
+|---|---|---|
+| [praat-parselmouth](https://github.com/YannickJadoul/Parselmouth) *(in extras, not yet wired)* | Praat-grade jitter/shimmer/formants, precise syllable nuclei | Now |
+| [DisVoice](https://github.com/jcvasquezc/DisVoice) | Feature sets designed for neurological speech disorders | Next |
+| Self-supervised embeddings (wav2vec 2.0 / HuBERT via [Transformers](https://huggingface.co/docs/transformers)) | Learned paralinguistic representations beyond eGeMAPS | Later |
+| Jyutping tone analysis (forced alignment + [PyCantonese](https://pycantonese.org)) | Cantonese-specific tone-production accuracy as a biomarker | Later |
+
+### 📝 Linguistic biomarkers (Track B)
+
+| Candidate | What it unlocks | When |
+|---|---|---|
+| PyCantonese POS tagging *(already an optional dep)* | Real noun/pronoun counts instead of lexicon exclusion | Now |
+| Dependency parsing ([spaCy](https://spacy.io/) zh / [Stanza](https://stanfordnlp.github.io/stanza/)) | SPEC §2 syntactic complexity: parse depth, clause density | Next |
+| [sentence-transformers](https://www.sbert.net/) embeddings | Semantic coherence, topic drift, repeated-question detection | Next |
+| Local LLM scoring ([Ollama](https://ollama.com/) / llama.cpp) | Idea-density & coherence ratings — still fully offline | Later |
+
+### 📈 Baseline & anomaly detection (Layer 3)
+
+| Candidate | What it unlocks | When |
+|---|---|---|
+| EWMA control charts (config stub exists) | Earlier, smoother trend alarms than raw z-scores | Now |
+| Isolation Forest ([scikit-learn](https://scikit-learn.org/), already a dep) | Multivariate anomaly scoring across all biomarkers jointly | Next |
+| [ruptures](https://centre-borelli.github.io/ruptures-docs/) change-point detection | "Something changed around March" step-change alerts | Next |
+| Validation on [ADReSS](https://dementia.talkbank.org/) / Pitt / TAUKADIAL corpora | External benchmarks for sensitivity/specificity claims | Later |
+
+### 🖥️ Product & platform
+
+| Candidate | What it unlocks | When |
+|---|---|---|
+| PDF reports ([WeasyPrint](https://weasyprint.org/)) | Printable trend report for clinic visits (SPEC Layer 4) | Now |
+| GitHub Actions CI | Auto-run `ruff` + `pytest` on every push | Now |
+| Docker image | One-command deploy without local Python setup | Next |
+| Auth + clinician roles (FastAPI + OAuth2) | Multi-clinician use; patient data stays access-controlled | Next |
+| Encryption at rest (SQLCipher / age) | Protect stored profiles beyond git-ignored plaintext JSON | Next |
+| FHIR export | Interoperability with hospital EHR systems | Later |
+| Desktop/mobile packaging (Tauri / sherpa-onnx) | Fully offline bedside/edge capture without a server | Later |
 
 ## 📄 License
 

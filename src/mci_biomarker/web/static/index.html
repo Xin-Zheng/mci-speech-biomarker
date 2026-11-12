@@ -10,15 +10,20 @@
   *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
   header{background:linear-gradient(120deg,#0c4a6e,#155e75);padding:20px 28px}
   header h1{margin:0;font-size:22px} header p{margin:6px 0 0;color:#bae6fd;font-size:14px}
+  nav{display:flex;gap:8px;padding:12px 28px 0;max-width:1100px;margin:0 auto}
+  nav button{background:var(--panel);color:var(--muted);border:1px solid var(--line);border-bottom:0;border-radius:10px 10px 0 0;padding:9px 18px}
+  nav button.active{background:var(--panel);color:var(--text);border-color:var(--accent)}
   main{max-width:1100px;margin:0 auto;padding:20px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:18px}
-  .card h2{margin:0 0 12px;font-size:16px} .muted{color:var(--muted);font-size:13px}
+  .card h2{margin:0 0 12px;font-size:16px} .card h3{margin:18px 0 8px;font-size:14px}
+  .muted{color:var(--muted);font-size:13px}
   .row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
   label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
   input[type=text],textarea,select{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 10px;font-size:14px}
   textarea{width:100%;min-height:64px} input[type=file]{font-size:14px}
   button{background:var(--accent);color:#082f49;border:0;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer;font-size:14px}
   button:disabled{opacity:.5;cursor:wait} button.secondary{background:#334155;color:var(--text)}
+  button.danger{background:#7f1d1d;color:#fecaca} button.small{padding:6px 12px;font-size:13px}
   #drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted)}
   #drop.over{border-color:var(--accent);color:var(--text)}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
@@ -28,10 +33,26 @@
   .flag{border-color:var(--bad)} .ok{color:var(--good)} .warn{color:var(--warn)} .err{color:var(--bad)}
   table{width:100%;border-collapse:collapse;font-size:13px} th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
   th{color:var(--muted);font-weight:600}
-  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:380px;font-size:12px}
+  pre{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:380px;font-size:12px;white-space:pre-wrap}
   .pill{display:inline-block;background:#334155;border-radius:999px;padding:2px 10px;font-size:12px;margin:2px 4px 2px 0}
   .pill.bad{background:#7f1d1d;color:#fecaca} .hidden{display:none}
   svg.spark{width:100%;height:90px;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+  .spk{border-left:6px solid var(--accent)}
+  .timeline{display:flex;height:22px;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin:10px 0;background:#0b1220}
+  .timeline div{height:100%}
+  .patient-card{cursor:pointer} .patient-card:hover{border-color:var(--accent)}
+  .progress-wrap{margin-top:14px}
+  .progress-head{display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .progress-head .stage{color:var(--text)}
+  .progress-track{height:16px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .progress-fill{height:100%;width:0%;border-radius:999px;transition:width .4s ease;
+    background:linear-gradient(90deg,#0284c7,#38bdf8,#7dd3fc,#38bdf8);background-size:200% 100%;animation:slide 1.4s linear infinite}
+  .progress-fill.done{animation:none;background:var(--good)}
+  .progress-fill.failed{animation:none;background:var(--bad)}
+  @keyframes slide{from{background-position:0 0}to{background-position:-200% 0}}
+  .spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .avatar{display:inline-flex;width:40px;height:40px;border-radius:50%;background:#155e75;color:#e0f2fe;align-items:center;justify-content:center;font-weight:700;margin-right:10px}
 </style>
 </head>
 <body>
@@ -39,57 +60,95 @@
   <h1>🎙️ MCI Digital Speech Biomarker</h1>
   <p>Cognitive Wellness Trend Report — non-diagnostic. Supports formal assessment (MMSE/MoCA); it does not replace it. Audio is processed locally and deleted immediately after analysis.</p>
 </header>
+<nav>
+  <button id="tabAnalyze" class="active">Analyze 分析</button>
+  <button id="tabPatients">Patients 患者</button>
+</nav>
 <main>
+<!-- ================= ANALYZE VIEW ================= -->
+<div id="viewAnalyze">
   <section class="card">
     <h2>1 · Upload a speech recording (.wav)</h2>
-    <div id="drop">Drag &amp; drop a .wav file here, or choose below</div>
+    <div id="drop">Drag &amp; drop an audio file here, or choose below</div>
     <div class="row" style="margin-top:14px">
       <div><label for="file">Audio file</label><input id="file" type="file" accept=".wav,.mp3,.m4a,.flac,.ogg,audio/*" /></div>
-      <div><label for="user">User ID (longitudinal profile)</label><input id="user" type="text" value="demo" /></div>
       <div><label for="language">Language 語言</label><select id="language"><option value="en" selected>English</option><option value="yue">粵語 (Cantonese)</option><option value="zh">中文 (Mandarin)</option></select></div>
-      <label style="margin-bottom:10px"><input id="save" type="checkbox" checked /> Save to baseline history</label>
+      <div><label for="mode">People in recording</label><select id="mode"><option value="single" selected>Single patient</option><option value="multi">Multiple people — detect speakers</option></select></div>
+      <label style="margin-bottom:10px"><input id="save" type="checkbox" checked /> Save to patient history</label>
+    </div>
+    <div id="singleControls" class="row" style="margin-top:12px">
+      <div><label for="patientSelect">Patient 患者</label><select id="patientSelect"></select></div>
+      <div id="newPatientWrap" class="hidden"><label for="newPatientName">New patient name</label><input id="newPatientName" type="text" placeholder="e.g. Chan Tai" /></div>
       <button id="analyze">Analyze speech</button>
       <button id="demo" class="secondary">Try demo transcript</button>
     </div>
-    <div style="margin-top:12px">
-      <label for="transcript">Optional known transcript (skips Whisper — useful offline or for a picture-description task)</label>
+    <div id="multiControls" class="row hidden" style="margin-top:12px">
+      <button id="detect">🔍 Detect speakers</button>
+      <span class="muted">Step 1 finds who spoke when; step 2 lets you assign each voice to a patient.</span>
+    </div>
+    <div id="transcriptWrap" style="margin-top:12px">
+      <label for="transcript">Optional known transcript (single-patient mode; skips ASR)</label>
       <textarea id="transcript" placeholder="e.g. The boy is taking cookies from the jar while his mother washes dishes..."></textarea>
     </div>
-    <div class="row" style="margin-top:10px">
-      <div><label for="historyUser">View history for</label><select id="historyUser"></select></div>
-      <button id="refresh" class="secondary">Refresh trends</button>
-      <span id="status" class="muted"></span>
+    <p><span id="status" class="muted"></span></p>
+    <div id="progressWrap" class="progress-wrap hidden">
+      <div class="progress-head"><span class="stage"><span class="spinner"></span><span id="progressStage">Starting…</span></span><span><span id="progressPct">0%</span> · <span id="progressElapsed">0s</span></span></div>
+      <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+      <p class="muted" style="margin:6px 0 0">Analysis runs locally on this machine (ASR is the slow part — roughly 15–60s per minute of audio). You can switch to the Patients tab while waiting.</p>
     </div>
   </section>
 
-  <section id="report" class="card hidden">
-    <h2>2 · Biomarker report <span id="reportMeta" class="muted"></span></h2>
-    <div id="alerts"></div>
-    <h3>Track A — Acoustic / paralinguistic</h3>
-    <div id="acousticGrid" class="grid"></div>
-    <h3>Track B — Linguistic / semantic</h3>
-    <div id="lingGrid" class="grid"></div>
-    <h3>Personal baseline comparison</h3>
-    <p id="baselineSummary"></p>
-    <div id="zTable"></div>
-    <h3>Transcript</h3>
-    <pre id="transcriptOut">(none)</pre>
-    <h3>Provenance &amp; warnings</h3>
-    <div id="prov"></div>
-    <p class="row"><button id="download" class="secondary">Download JSON profile</button>
-    <button id="toggleJson" class="secondary">Show raw JSON</button></p>
-    <pre id="rawJson" class="hidden"></pre>
+  <section id="assignCard" class="card hidden">
+    <h2>2 · Who is who? Assign each voice to a patient</h2>
+    <p id="diarMeta" class="muted"></p>
+    <div id="timeline" class="timeline"></div>
+    <div id="speakerCards"></div>
+    <p class="row"><button id="analyzeAll">Analyze all speakers → per-patient reports</button></p>
   </section>
 
+  <div id="reportMount"></div>
+</div>
+
+<!-- ================= PATIENTS VIEW ================= -->
+<div id="viewPatients" class="hidden">
   <section class="card">
-    <h2>3 · Longitudinal trends <span id="trendMeta" class="muted"></span></h2>
-    <p class="muted">Each chart tracks one biomarker across saved sessions for the selected user. Flags activate after the personal baseline forms (≥5 sessions; SPEC recommends 30–90 days).</p>
-    <div id="trends"></div>
+    <h2>Patients 患者</h2>
+    <div class="row">
+      <div><label for="addName">New patient name</label><input id="addName" type="text" placeholder="e.g. Chan Tai 陳伯" /></div>
+      <button id="addPatient">＋ Add patient</button>
+      <button id="refreshPatients" class="secondary">Refresh</button>
+    </div>
   </section>
+  <div id="patientGrid" class="grid"></div>
+</div>
+
+<!-- ================= PATIENT DETAIL ================= -->
+<div id="viewPatient" class="hidden">
+  <section class="card">
+    <p class="row"><button id="backToPatients" class="secondary small">← All patients</button>
+    <span id="patientTitle" style="font-size:18px;font-weight:700"></span></p>
+    <div class="row">
+      <div><label for="editName">Display name</label><input id="editName" type="text" /></div>
+      <div style="flex:1;min-width:220px"><label for="editNotes">Notes 備註</label><input id="editNotes" type="text" style="width:100%" /></div>
+      <button id="savePatientMeta" class="secondary">Save</button>
+      <button id="deletePatient" class="danger">Delete patient + history</button>
+    </div>
+    <p id="patientMeta" class="muted"></p>
+  </section>
+  <div id="patientLatest"></div>
+  <section class="card">
+    <h2>Longitudinal trends 趨勢</h2>
+    <div id="patientTrends"></div>
+    <h3>Sessions 記錄</h3>
+    <div id="patientSessions"></div>
+  </section>
+</div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
-let lastProfile = null, droppedFile = null;
+const COLORS = ["#38bdf8","#f472b6","#a3e635","#fbbf24","#c084fc","#fb7185"];
+let droppedFile = null, pendingUploadId = null, pendingDiar = null;
+let patientsCache = [], currentPatient = null;
 
 const ACOUSTIC_CARDS = [
   ["speech_rate_syll_per_s","Speech rate","syll/s (incl. pauses)"],
@@ -105,109 +164,346 @@ const LING_CARDS = [
   ["mattr","MATTR","moving-avg TTR"],
   ["mtld","MTLD","lexical diversity"],
   ["pronoun_to_noun_ratio","Pronoun : noun","referential vagueness"],
-  ["filler_ratio","Filler ratio","um / uh per token"],
+  ["filler_ratio","Filler ratio","filled pauses per token"],
   ["words_per_minute","Words / min","speech output"],
 ];
 
 function fmt(v){ return (v===null||v===undefined) ? "—" : (typeof v==="number" ? (Math.abs(v)>=100? v.toFixed(1) : v.toFixed(3)) : v); }
-function card([key,label,desc], src, flagged){
-  const z = lastProfile?.baseline?.z_scores?.[key];
+function esc(s){ return String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function setStatus(msg, cls="muted"){ const s=$("status"); if(s){ s.textContent=msg; s.className=cls; } }
+
+/* ---------- progress bar (background jobs) ---------- */
+let progressTimer = null, progressStartedAt = 0;
+function showProgress(stage){
+  $("progressWrap").classList.remove("hidden");
+  const fill = $("progressFill");
+  fill.className = "progress-fill"; fill.style.width = "0%";
+  $("progressPct").textContent = "0%";
+  $("progressStage").textContent = stage || "Starting…";
+  progressStartedAt = Date.now();
+  $("progressElapsed").textContent = "0s";
+  clearInterval(progressTimer);
+  progressTimer = setInterval(()=>{
+    const s = Math.floor((Date.now()-progressStartedAt)/1000);
+    $("progressElapsed").textContent = s >= 60 ? `${Math.floor(s/60)}m ${s%60}s` : `${s}s`;
+  }, 500);
+}
+function updateProgress(job){
+  $("progressFill").style.width = (job.progress||0) + "%";
+  $("progressPct").textContent = (job.progress||0) + "%";
+  $("progressStage").textContent = job.stage || "";
+}
+function finishProgress(ok, label){
+  clearInterval(progressTimer);
+  const fill = $("progressFill");
+  fill.style.width = "100%";
+  fill.className = "progress-fill " + (ok ? "done" : "failed");
+  $("progressPct").textContent = ok ? "100%" : "—";
+  $("progressStage").textContent = label || (ok ? "Done" : "Failed");
+  if(ok) setTimeout(()=> $("progressWrap").classList.add("hidden"), 2500);
+}
+async function pollJob(jobId){
+  while(true){
+    const r = await fetch(`/api/jobs/${jobId}`);
+    const job = await r.json().catch(()=>null);
+    if(!r.ok || !job) throw new Error(job?.detail || "Lost track of the analysis job.");
+    updateProgress(job);
+    if(job.status === "done"){ finishProgress(true); return job.result; }
+    if(job.status === "failed"){ finishProgress(false, "Failed"); throw new Error(job.error || "Analysis failed."); }
+    await new Promise(res=>setTimeout(res, 800));
+  }
+}
+async function startJob(url, options, firstStage){
+  showProgress(firstStage || "Uploading…");
+  const r = await fetch(url, options);
+  const d = await r.json().catch(()=>({detail:"Invalid server response"}));
+  if(!r.ok){ finishProgress(false, "Failed"); throw new Error(d.detail || r.statusText); }
+  return pollJob(d.job_id);
+}
+function slugify(name){ const s = name.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,""); return s || ("patient-" + Date.now().toString(36)); }
+
+function showView(name){
+  ["viewAnalyze","viewPatients","viewPatient"].forEach(v=>$(v).classList.add("hidden"));
+  $("tabAnalyze").classList.toggle("active", name==="analyze");
+  $("tabPatients").classList.toggle("active", name!=="analyze");
+  if(name==="analyze") $("viewAnalyze").classList.remove("hidden");
+  if(name==="patients"){ $("viewPatients").classList.remove("hidden"); loadPatients(); }
+  if(name==="patient") $("viewPatient").classList.remove("hidden");
+}
+
+function metricCard([key,label,desc], src, p){
+  const z = p.baseline?.z_scores?.[key];
   const ztxt = z===undefined ? "" : ` · z=${z>=0?"+":""}${z.toFixed(2)}σ`;
-  return `<div class="metric ${flagged.includes(key)?"flag":""}"><div class="k">${label}</div>`+
+  const flagged = (p.baseline?.flagged||[]).includes(key);
+  return `<div class="metric ${flagged?"flag":""}"><div class="k">${label}</div>`+
     `<div class="v">${fmt(src[key])}</div><div class="d">${desc}${ztxt}</div></div>`;
 }
-function setStatus(msg, cls="muted"){ const s=$("status"); s.textContent=msg; s.className=cls; }
 
-function renderProfile(p){
-  lastProfile = p;
-  $("report").classList.remove("hidden");
-  $("reportMeta").textContent = `· ${p.source_filename||""} · user ${p.user_id} · ${new Date(p.created_at).toLocaleString()}`;
+function profileHTML(p, title){
   const flagged = p.baseline?.flagged || [];
-  $("alerts").innerHTML =
-    (p.linguistic?.low_confidence ? `<p class="warn">⚠ Low ASR confidence — linguistic metrics down-weighted; lean on acoustic markers.</p>` : "") +
-    (flagged.length ? `<p class="err">⚠ ${flagged.length} biomarker(s) beyond ±2σ of personal baseline: ${flagged.join(", ")}</p>` :
-      `<p class="ok">✓ No baseline-deviation flags this session.</p>`);
-  $("acousticGrid").innerHTML = ACOUSTIC_CARDS.map(c=>card(c,p.acoustic,flagged)).join("") +
-    `<div class="metric"><div class="k">Speech segments</div><div class="v">${p.vad.segments.length}</div>`+
-    `<div class="d">${p.vad.speech_duration_s}s speech / ${p.vad.total_duration_s}s total · ${p.vad.backend} VAD · ${p.vad.n_speakers} speaker(s)</div></div>`;
-  $("lingGrid").innerHTML = LING_CARDS.map(c=>card(c,p.linguistic,flagged)).join("") +
-    `<div class="metric"><div class="k">Tokens / types</div><div class="v">${p.linguistic.token_count} / ${p.linguistic.type_count}</div>`+
-    `<div class="d">pronouns ${p.linguistic.pronoun_count} · nouns ${p.linguistic.noun_count} · ASR conf ${fmt(p.linguistic.mean_confidence)}</div></div>`;
-  $("baselineSummary").textContent = p.baseline?.summary || "";
   const z = p.baseline?.z_scores || {};
-  $("zTable").innerHTML = Object.keys(z).length ?
+  const zTable = Object.keys(z).length ?
     `<table><tr><th>Metric</th><th>z-score vs baseline</th><th>Status</th></tr>` +
     Object.entries(z).map(([k,v])=>`<tr><td>${k}</td><td>${v>=0?"+":""}${v.toFixed(2)}σ</td><td>${Math.abs(v)>=2?'<span class="err">flagged</span>':'<span class="ok">in range</span>'}</td></tr>`).join("") + `</table>`
     : `<p class="muted">Baseline still forming — z-scores appear after enough sessions.</p>`;
-  $("transcriptOut").textContent = p.linguistic?.transcript || "(no transcript — install faster-whisper or paste a transcript above)";
-  $("prov").innerHTML =
-    `<span class="pill">language: ${p.linguistic.language||"en"}</span>` +
-    ["vad_backend","acoustic_backend","asr_backend"].map(k=>`<span class="pill">${k}: ${p.provenance[k]}</span>`).join("") +
-    `<span class="pill">audio_retained: ${p.provenance.audio_retained}</span>` +
-    (p.provenance.warnings||[]).map(w=>`<span class="pill bad">${w}</span>`).join("") +
-    (p.acoustic.egemaps ? `<p class="muted">eGeMAPS: ${Object.keys(p.acoustic.egemaps).length} functionals included in JSON.</p>` : "");
-  $("rawJson").textContent = JSON.stringify(p, null, 2);
+  return `<section class="card">
+    <h2>${esc(title || "Biomarker report")} <span class="muted">· patient ${esc(p.user_id)} · ${esc(p.speaker||"")} · ${new Date(p.created_at).toLocaleString()}</span></h2>
+    ${p.linguistic?.low_confidence ? `<p class="warn">⚠ Low ASR confidence — linguistic metrics down-weighted; lean on acoustic markers.</p>` : ""}
+    ${flagged.length ? `<p class="err">⚠ ${flagged.length} biomarker(s) beyond ±2σ of personal baseline: ${flagged.join(", ")}</p>` : `<p class="ok">✓ No baseline-deviation flags this session.</p>`}
+    <h3>Track A — Acoustic / paralinguistic</h3>
+    <div class="grid">${ACOUSTIC_CARDS.map(c=>metricCard(c,p.acoustic,p)).join("")}
+      <div class="metric"><div class="k">Speech segments</div><div class="v">${p.vad.segments.length}</div>
+      <div class="d">${p.vad.speech_duration_s}s speech / ${p.vad.total_duration_s}s total · ${p.vad.backend} · ${p.n_speakers_detected||p.vad.n_speakers} speaker(s) in file</div></div></div>
+    <h3>Track B — Linguistic / semantic</h3>
+    <div class="grid">${LING_CARDS.map(c=>metricCard(c,p.linguistic,p)).join("")}
+      <div class="metric"><div class="k">Tokens / types</div><div class="v">${p.linguistic.token_count} / ${p.linguistic.type_count}</div>
+      <div class="d">pronouns ${p.linguistic.pronoun_count} · nouns ${p.linguistic.noun_count} · ASR conf ${fmt(p.linguistic.mean_confidence)}</div></div></div>
+    <h3>Personal baseline comparison</h3>
+    <p>${esc(p.baseline?.summary||"")}</p>${zTable}
+    <h3>Transcript</h3>
+    <pre>${esc(p.linguistic?.transcript || "(no transcript)")}</pre>
+    <h3>Provenance &amp; warnings</h3>
+    <div><span class="pill">language: ${esc(p.linguistic.language||"en")}</span>
+    ${["vad_backend","acoustic_backend","asr_backend"].map(k=>`<span class="pill">${k}: ${esc(p.provenance[k])}</span>`).join("")}
+    <span class="pill">audio_retained: ${p.provenance.audio_retained}</span>
+    ${(p.provenance.warnings||[]).map(w=>`<span class="pill bad">${esc(w)}</span>`).join("")}
+    ${p.acoustic.egemaps ? `<p class="muted">eGeMAPS: ${Object.keys(p.acoustic.egemaps).length} functionals included in JSON.</p>` : ""}</div>
+    <p class="row"><button class="secondary small" onclick="downloadProfile('${p.profile_id}')">Download JSON</button>
+    <button class="secondary small" onclick="document.getElementById('raw-${p.profile_id}').classList.toggle('hidden')">Raw JSON</button></p>
+    <pre id="raw-${p.profile_id}" class="hidden">${esc(JSON.stringify(p,null,2))}</pre>
+  </section>`;
+}
+
+const profileCache = {};
+function remember(p){ profileCache[p.profile_id] = p; }
+function downloadProfile(id){
+  const p = profileCache[id]; if(!p) return;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(p,null,2)],{type:"application/json"}));
+  a.download = `biomarker-${p.user_id}-${p.profile_id}.json`; a.click();
 }
 
 function sparkline(values, label){
   const pts = values.map((v,i)=>[i,v]).filter(([,v])=>v!==null&&v!==undefined);
-  if(pts.length<1) return "";
+  if(!pts.length) return "";
   const w=520,h=90,pad=10, vals=pts.map(([,v])=>v);
   const min=Math.min(...vals), max=Math.max(...vals), span=(max-min)||1;
   const X=i=> pad + (values.length<=1? w/2 : i*(w-2*pad)/(values.length-1));
   const Y=v=> h-pad - (v-min)*(h-2*pad)/span;
   const line = pts.map(([i,v])=>`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
-  const dots = pts.map(([i,v])=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="#38bdf8"><title>${label}: ${fmt(v)}</title></circle>`).join("");
-  return `<div style="margin-bottom:14px"><div class="muted">${label} · latest ${fmt(pts[pts.length-1][1])}</div>`+
+  const dots = pts.map(([i,v])=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="#38bdf8"><title>${esc(label)}: ${fmt(v)}</title></circle>`).join("");
+  return `<div style="margin-bottom:14px"><div class="muted">${esc(label)} · latest ${fmt(pts[pts.length-1][1])}</div>`+
     `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${line}" fill="none" stroke="#38bdf8" stroke-width="2"/>${dots}</svg></div>`;
 }
-
-async function loadUsers(selectId){
-  try{
-    const r = await fetch("/api/users"); const d = await r.json();
-    const sel = $(selectId); const cur = sel.value || $("user").value;
-    sel.innerHTML = (d.users.length? d.users : [cur]).map(u=>`<option ${u===cur?"selected":""}>${u}</option>`).join("");
-  }catch(e){ /* offline */ }
-}
-async function loadTrends(){
-  const u = $("historyUser").value || $("user").value || "demo";
-  try{
-    const r = await fetch(`/api/users/${encodeURIComponent(u)}/trends`); const d = await r.json();
-    $("trendMeta").textContent = `· user ${u} · ${d.labels.length} session(s)`;
-    const order = ["speech_rate_syll_per_s","mean_pause_duration_s","pause_rate_per_min","ttr","mtld","pronoun_to_noun_ratio","filler_ratio","words_per_minute"];
-    $("trends").innerHTML = d.labels.length
-      ? order.map(k=>sparkline(d.metrics[k]||[], `${k} (${d.directions[k]||""})`)).join("")
-      : `<p class="muted">No saved sessions yet for “${u}”. Analyze a recording with “Save to baseline history” checked.</p>`;
-  }catch(e){ $("trends").innerHTML = `<p class="err">Could not load trends: ${e.message}</p>`; }
+function trendsHTML(d){
+  const order = ["speech_rate_syll_per_s","mean_pause_duration_s","pause_rate_per_min","ttr","mtld","pronoun_to_noun_ratio","filler_ratio","words_per_minute"];
+  return d.labels.length
+    ? order.map(k=>sparkline(d.metrics[k]||[], `${k} (${d.directions[k]||""})`)).join("")
+    : `<p class="muted">No saved sessions yet.</p>`;
 }
 
-async function analyze(){
-  const f = droppedFile || $("file").files[0];
+/* ---------- patients ---------- */
+async function fetchPatients(){
+  try{ const r = await fetch("/api/patients"); patientsCache = (await r.json()).patients || []; }
+  catch(e){ patientsCache = []; }
+  return patientsCache;
+}
+function patientOptions(selected){
+  let opts = patientsCache.map(p=>`<option value="${esc(p.patient_id)}" ${p.patient_id===selected?"selected":""}>${esc(p.display_name||p.patient_id)} (${esc(p.patient_id)})</option>`).join("");
+  if(selected && !patientsCache.some(p=>p.patient_id===selected))
+    opts += `<option value="${esc(selected)}" selected>${esc(selected)}</option>`;
+  return opts + `<option value="__new__">＋ New patient…</option><option value="__auto__" ${!selected?"selected":""}>Auto (recording-speaker)</option>`;
+}
+function patientName(pid){
+  const p = patientsCache.find(x=>x.patient_id===pid);
+  return p ? (p.display_name||p.patient_id) : pid;
+}
+async function refreshPatientSelect(){
+  await fetchPatients();
+  const sel = $("patientSelect"); const cur = sel.value;
+  sel.innerHTML = (patientsCache.length ? patientsCache.map(p=>`<option value="${esc(p.patient_id)}">${esc(p.display_name||p.patient_id)} (${esc(p.patient_id)})</option>`).join("") : "")
+    + `<option value="__new__">＋ New patient…</option>`;
+  if(cur && [...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  $("newPatientWrap").classList.toggle("hidden", sel.value !== "__new__");
+}
+async function ensureSinglePatientId(){
+  const sel = $("patientSelect");
+  if(sel.value !== "__new__" && sel.value) return sel.value;
+  const name = $("newPatientName").value.trim();
+  if(!name) throw new Error("Enter the new patient's name, or pick an existing patient.");
+  const pid = slugify(name);
+  await fetch(`/api/patients/${encodeURIComponent(pid)}`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({display_name:name})});
+  await refreshPatientSelect(); sel.value = pid;
+  return pid;
+}
+
+async function loadPatients(){
+  await fetchPatients();
+  $("patientGrid").innerHTML = patientsCache.length ? patientsCache.map((p,i)=>`
+    <div class="metric patient-card" onclick="openPatient('${esc(p.patient_id)}')">
+      <div><span class="avatar" style="background:${COLORS[i%COLORS.length]};color:#0b1220">${esc((p.display_name||p.patient_id).slice(0,1).toUpperCase())}</span><strong>${esc(p.display_name||p.patient_id)}</strong></div>
+      <div class="d" style="margin-top:8px">ID: ${esc(p.patient_id)} · ${p.session_count} session(s)${p.last_language?` · ${esc(p.last_language)}`:""}</div>
+      <div class="d">Last: ${p.last_session_at ? new Date(p.last_session_at).toLocaleString() : "—"}</div>
+      <div class="d">${p.session_count===0 ? "No sessions yet" : p.baseline_ready ? (p.flagged_count? `<span class="err">⚠ ${p.flagged_count} flagged biomarker(s)</span>` : `<span class="ok">✓ Baseline in range</span>`) : "Baseline forming…"}</div>
+    </div>`).join("")
+    : `<p class="muted">No patients yet — add one above, or analyze a recording.</p>`;
+}
+
+async function openPatient(pid){
+  const r = await fetch(`/api/patients/${encodeURIComponent(pid)}`);
+  if(!r.ok){ alert("Could not load patient"); return; }
+  const d = await r.json();
+  currentPatient = d;
+  d.profiles.forEach(remember);
+  $("patientTitle").textContent = `${d.patient.display_name||d.patient.patient_id}`;
+  $("editName").value = d.patient.display_name||"";
+  $("editNotes").value = d.patient.notes||"";
+  $("patientMeta").textContent = `Patient ID: ${d.patient.patient_id} · ${d.profiles.length} session(s) · since ${new Date(d.patient.created_at).toLocaleDateString()}`;
+  const latest = d.profiles[d.profiles.length-1];
+  $("patientLatest").innerHTML = latest ? profileHTML(latest, "Latest session 最新報告") : `<section class="card"><p class="muted">No sessions yet for this patient.</p></section>`;
+  $("patientTrends").innerHTML = trendsHTML(d.trends);
+  $("patientSessions").innerHTML = d.profiles.length ? `<table><tr><th>Date</th><th>File</th><th>Lang</th><th>Speech rate</th><th>Pause (s)</th><th>TTR</th><th>Pronoun:noun</th><th>Flags</th><th></th></tr>` +
+    [...d.profiles].reverse().map(p=>`<tr><td>${new Date(p.created_at).toLocaleString()}</td><td>${esc(p.source_filename||"")}</td><td>${esc(p.linguistic.language||"en")}</td><td>${fmt(p.acoustic.speech_rate_syll_per_s)}</td><td>${fmt(p.acoustic.mean_pause_duration_s)}</td><td>${fmt(p.linguistic.ttr)}</td><td>${fmt(p.linguistic.pronoun_to_noun_ratio)}</td><td>${(p.baseline.flagged||[]).length? `<span class="err">${p.baseline.flagged.length}</span>`:"0"}</td><td><button class="secondary small" onclick="downloadProfile('${p.profile_id}')">JSON</button></td></tr>`).join("") + `</table>`
+    : `<p class="muted">—</p>`;
+  showView("patient");
+}
+
+/* ---------- analyze flows ---------- */
+function pickedFile(){ return droppedFile || $("file").files[0]; }
+
+async function analyzeSingle(){
+  const f = pickedFile();
   if(!f){ setStatus("Choose or drop an audio file first.","err"); return; }
-  const btn = $("analyze"); btn.disabled = true; setStatus("Analyzing… (VAD → acoustic + linguistic extraction)");
+  const btn = $("analyze"); btn.disabled = true; setStatus("");
   try{
+    const pid = await ensureSinglePatientId();
     const fd = new FormData();
-    fd.append("file", f); fd.append("user_id", $("user").value||"anonymous");
+    fd.append("file", f); fd.append("user_id", pid);
     fd.append("language", $("language").value||"en");
     fd.append("transcript", $("transcript").value); fd.append("save", $("save").checked);
-    const r = await fetch("/api/analyze", {method:"POST", body:fd});
-    const d = await r.json().catch(()=>({detail:"Invalid server response"}));
-    if(!r.ok) throw new Error(d.detail || r.statusText);
-    renderProfile(d); setStatus("Analysis complete ✓","ok");
-    await loadUsers("historyUser"); $("historyUser").value = d.user_id; await loadTrends();
+    const d = await startJob("/api/jobs/analyze", {method:"POST", body:fd}, "Uploading recording…");
+    remember(d);
+    $("reportMount").innerHTML = profileHTML(d, "Biomarker report");
+    setStatus("Analysis complete ✓","ok");
+    await refreshPatientSelect();
   }catch(e){ setStatus("Analysis failed: "+e.message,"err"); }
   finally{ btn.disabled = false; }
 }
 
-$("analyze").addEventListener("click", analyze);
-$("refresh").addEventListener("click", async ()=>{ await loadUsers("historyUser"); await loadTrends(); });
-$("historyUser").addEventListener("change", loadTrends);
-$("toggleJson").addEventListener("click", ()=> $("rawJson").classList.toggle("hidden"));
-$("download").addEventListener("click", ()=>{
-  if(!lastProfile) return;
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([JSON.stringify(lastProfile,null,2)],{type:"application/json"}));
-  a.download=`biomarker-${lastProfile.user_id}-${lastProfile.profile_id}.json`; a.click();
+async function detectSpeakers(){
+  const f = pickedFile();
+  if(!f){ setStatus("Choose or drop an audio file first.","err"); return; }
+  const btn = $("detect"); btn.disabled = true; setStatus("");
+  try{
+    await fetchPatients();
+    const fd = new FormData(); fd.append("file", f);
+    const d = await startJob("/api/jobs/diarize", {method:"POST", body:fd}, "Uploading recording…");
+    pendingUploadId = d.upload_id; pendingDiar = d.diarization;
+    renderAssignment(d);
+    setStatus(`Found ${d.diarization.speakers.length} speaker(s) — assign each voice below.`,"ok");
+  }catch(e){ setStatus("Speaker detection failed: "+e.message,"err"); }
+  finally{ btn.disabled = false; }
+}
+
+function renderAssignment(d){
+  const diar = d.diarization;
+  $("assignCard").classList.remove("hidden");
+  $("diarMeta").textContent = `${d.filename} · ${diar.speakers.length} speaker(s) · backend: ${diar.backend} · ${diar.total_duration_s}s total` +
+    (d.warnings?.length ? " · " + d.warnings.join(" ") : "");
+  const total = diar.total_duration_s || 1;
+  const sortedSegs = [...diar.segments].sort((a,b)=>a.start_s-b.start_s);
+  let cursor = 0, tl = "";
+  for(const s of sortedSegs){
+    const idx = diar.speakers.findIndex(x=>x.speaker===s.speaker);
+    const gap = Math.max(0, s.start_s - cursor);
+    if(gap > 0.05) tl += `<div style="width:${(gap/total*100).toFixed(2)}%"></div>`;
+    tl += `<div title="${s.speaker} ${s.start_s}s–${s.end_s}s" style="width:${Math.max(0.4,(s.end_s-s.start_s)/total*100)}%;background:${COLORS[idx%COLORS.length]}"></div>`;
+    cursor = Math.max(cursor, s.end_s);
+  }
+  $("timeline").innerHTML = tl;
+  $("speakerCards").innerHTML = diar.speakers.map((s,i)=>{
+    const matchBadge = s.matched_patient_id
+      ? `<div style="margin-top:6px"><span class="pill" style="background:#14532d;color:#bbf7d0">✓ Auto-matched voice: ${esc(patientName(s.matched_patient_id))} · ${(s.match_similarity*100).toFixed(0)}% similar</span></div>`
+      : `<div class="d" style="margin-top:6px">No voiceprint match — pick a patient or leave as Auto.</div>`;
+    return `
+    <div class="metric spk" style="border-left-color:${COLORS[i%COLORS.length]};margin-bottom:12px">
+      <div class="row">
+        <div style="min-width:220px"><strong>${s.speaker}</strong>
+          <div class="d">${s.duration_s}s of speech · ${s.segment_count} segment(s)${s.f0_mean_hz?` · voice pitch ≈ ${s.f0_mean_hz} Hz`:""}</div>${matchBadge}</div>
+        <div><label>Patient</label><select id="assign-${s.speaker}" onchange="document.getElementById('assignNew-${s.speaker}').classList.toggle('hidden', this.value!=='__new__')">${patientOptions(s.matched_patient_id||null)}</select></div>
+        <div id="assignNew-${s.speaker}" class="hidden"><label>New patient name</label><input type="text" id="assignName-${s.speaker}" placeholder="e.g. Lee Mui" /></div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function analyzeAll(){
+  if(!pendingUploadId || !pendingDiar){ setStatus("Detect speakers first.","err"); return; }
+  const btn = $("analyzeAll"); btn.disabled = true; setStatus("");
+  try{
+    const assignments = {}, new_patients = [];
+    for(const s of pendingDiar.speakers){
+      const sel = document.getElementById("assign-"+s.speaker);
+      if(!sel || sel.value === "__auto__") continue;
+      if(sel.value === "__new__"){
+        const name = document.getElementById("assignName-"+s.speaker).value.trim();
+        if(!name) throw new Error(`Enter a name for ${s.speaker} or choose Auto.`);
+        const pid = slugify(name);
+        assignments[s.speaker] = pid;
+        new_patients.push({patient_id: pid, display_name: name});
+      } else assignments[s.speaker] = sel.value;
+    }
+    const d = await startJob("/api/jobs/analyze-speakers", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({upload_id: pendingUploadId, base_user_id: "recording", assignments, new_patients,
+        language: $("language").value||"en", save: $("save").checked})}, "Analyzing speakers…");
+    d.profiles.forEach(remember);
+    $("reportMount").innerHTML = d.profiles.map(p=>profileHTML(p, `Report — ${p.user_id}`)).join("");
+    pendingUploadId = null; pendingDiar = null;
+    $("assignCard").classList.add("hidden");
+    setStatus(`Done ✓ ${d.profiles.length} patient report(s) created.`,"ok");
+    await refreshPatientSelect();
+  }catch(e){ setStatus("Analysis failed: "+e.message,"err"); }
+  finally{ btn.disabled = false; }
+}
+
+/* ---------- wiring ---------- */
+$("tabAnalyze").addEventListener("click", ()=>showView("analyze"));
+$("tabPatients").addEventListener("click", ()=>showView("patients"));
+$("backToPatients").addEventListener("click", ()=>showView("patients"));
+$("mode").addEventListener("change", ()=>{
+  const multi = $("mode").value === "multi";
+  $("singleControls").classList.toggle("hidden", multi);
+  $("multiControls").classList.toggle("hidden", !multi);
+  $("transcriptWrap").classList.toggle("hidden", multi);
+  if(!multi){ $("assignCard").classList.add("hidden"); }
+});
+$("patientSelect").addEventListener("change", ()=> $("newPatientWrap").classList.toggle("hidden", $("patientSelect").value !== "__new__"));
+$("analyze").addEventListener("click", analyzeSingle);
+$("detect").addEventListener("click", detectSpeakers);
+$("analyzeAll").addEventListener("click", analyzeAll);
+$("refreshPatients").addEventListener("click", loadPatients);
+$("addPatient").addEventListener("click", async ()=>{
+  const name = $("addName").value.trim();
+  if(!name){ alert("Enter a patient name."); return; }
+  const pid = slugify(name);
+  await fetch(`/api/patients/${encodeURIComponent(pid)}`, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({display_name:name})});
+  $("addName").value = "";
+  await loadPatients(); await refreshPatientSelect();
+});
+$("savePatientMeta").addEventListener("click", async ()=>{
+  if(!currentPatient) return;
+  const pid = currentPatient.patient.patient_id;
+  await fetch(`/api/patients/${encodeURIComponent(pid)}`, {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({display_name: $("editName").value, notes: $("editNotes").value})});
+  openPatient(pid);
+});
+$("deletePatient").addEventListener("click", async ()=>{
+  if(!currentPatient) return;
+  const pid = currentPatient.patient.patient_id;
+  if(!confirm(`Delete patient ${pid} AND all their session history? This cannot be undone.`)) return;
+  await fetch(`/api/patients/${encodeURIComponent(pid)}?delete_profiles=true`, {method:"DELETE"});
+  await refreshPatientSelect();
+  showView("patients");
 });
 $("demo").addEventListener("click", ()=>{
   if($("language").value === "yue"){
@@ -218,14 +514,14 @@ $("demo").addEventListener("click", ()=>{
       "A boy is standing on a stool taking cookies from the jar, and a girl is reaching up for that thing. " +
       "Um, the stool looks like it might fall over. There are cups and plates on the counter near the window.";
   }
-  setStatus("Demo transcript filled — now choose any short .wav and click Analyze.");
+  setStatus("Demo transcript filled — now choose any short audio file and click Analyze.");
 });
 const drop = $("drop");
 ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
 ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
-drop.addEventListener("drop", e=>{ droppedFile = e.dataTransfer.files[0]; if(droppedFile) drop.textContent = "Ready: "+droppedFile.name; });
-$("file").addEventListener("change", ()=>{ droppedFile=null; if($("file").files[0]) drop.textContent="Ready: "+$("file").files[0].name; });
-loadUsers("historyUser").then(loadTrends);
+drop.addEventListener("drop", e=>{ droppedFile = e.dataTransfer.files[0]; if(droppedFile) drop.textContent = "Ready: "+droppedFile.name; pendingUploadId=null; });
+$("file").addEventListener("change", ()=>{ droppedFile=null; pendingUploadId=null; if($("file").files[0]) drop.textContent="Ready: "+$("file").files[0].name; });
+refreshPatientSelect();
 </script>
 </body>
 </html>

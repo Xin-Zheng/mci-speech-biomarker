@@ -29,13 +29,41 @@ class SpeechSegment(BaseModel):
 
 
 class VADResult(BaseModel):
-    backend: str  # "pyannote" | "energy"
+    backend: str  # "pyannote" | "cluster" | "energy"
     segments: list[SpeechSegment] = Field(default_factory=list)
     n_speakers: int = 1
     target_speaker: str = "SPEAKER_00"
     total_duration_s: float = 0.0
     speech_duration_s: float = 0.0
     speech_ratio: float = 0.0
+
+
+class SpeakerSummary(BaseModel):
+    speaker: str
+    duration_s: float = 0.0
+    segment_count: int = 0
+    f0_mean_hz: float | None = None  # helps the user tell voices apart in the UI
+    # Voiceprint auto-match against enrolled patients (None = no confident match)
+    matched_patient_id: str | None = None
+    match_similarity: float | None = None  # cosine similarity in [-1, 1]
+
+
+class DiarizationResult(BaseModel):
+    """All speakers detected in a recording (segments carry speaker labels)."""
+
+    backend: str  # "pyannote" | "cluster" | "energy"
+    segments: list[SpeechSegment] = Field(default_factory=list)
+    speakers: list[SpeakerSummary] = Field(default_factory=list)
+    total_duration_s: float = 0.0
+
+
+class Patient(BaseModel):
+    """A tracked person. Profiles are stored per patient_id (= profile user_id)."""
+
+    patient_id: str
+    display_name: str = ""
+    notes: str = ""
+    created_at: str = Field(default_factory=utc_now_iso)
 
 
 class AcousticFeatures(BaseModel):
@@ -122,7 +150,9 @@ class BiomarkerProfile(BaseModel):
     """One session's structured biomarker profile (the JSON output)."""
 
     profile_id: str = Field(default_factory=lambda: uuid4().hex[:12])
-    user_id: str = "anonymous"
+    user_id: str = "anonymous"  # patient_id this profile belongs to
+    speaker: str = "SPEAKER_00"  # diarization label within the source recording
+    n_speakers_detected: int = 1
     created_at: str = Field(default_factory=utc_now_iso)
     source_filename: str = ""
     disclaimer: str = (

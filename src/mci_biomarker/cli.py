@@ -8,7 +8,7 @@ from pathlib import Path
 import click
 
 from .config import PipelineConfig
-from .pipeline import analyze_wav
+from .pipeline import analyze_wav, analyze_wav_speakers
 
 
 @click.command()
@@ -28,10 +28,19 @@ from .pipeline import analyze_wav
 @click.option("--whisper-model", default=None, help="Override Whisper model, e.g. small, medium.")
 @click.option(
     "--diarization",
-    type=click.Choice(["auto", "pyannote", "energy"]),
+    type=click.Choice(["auto", "pyannote", "cluster", "energy"]),
     default="auto",
     show_default=True,
 )
+@click.option(
+    "--speakers",
+    type=click.Choice(["target", "all"]),
+    default="target",
+    show_default=True,
+    help="target = dominant speaker only; all = one profile per detected speaker.",
+)
+@click.option("--speaker-map", default=None,
+              help='With --speakers all: "SPEAKER_00=chan-tai,SPEAKER_01=lee-mui".')
 @click.option(
     "--acoustic-backend",
     type=click.Choice(["auto", "opensmile", "signal"]),
@@ -44,6 +53,8 @@ from .pipeline import analyze_wav
               help="Append profile to the longitudinal store (data/profiles/).")
 @click.option("--pretty/--compact", default=False, help="Pretty-print JSON.")
 @click.option("--quiet", is_flag=True, help="Suppress stdout JSON (use with --out).")
+@click.option("--progress/--no-progress", default=True, show_default=True,
+              help="Print stage progress to stderr while analyzing.")
 def main(
     wav: Path,
     user_id: str,
@@ -52,11 +63,14 @@ def main(
     asr_backend: str,
     whisper_model: str | None,
     diarization: str,
+    speakers: str,
+    speaker_map: str | None,
     acoustic_backend: str,
     out: Path | None,
     save: bool,
     pretty: bool,
     quiet: bool,
+    progress: bool,
 ) -> None:
     """Analyze WAV and emit a structured JSON biomarker profile."""
     cfg = PipelineConfig()
@@ -67,23 +81,52 @@ def main(
     cfg.acoustic_backend = acoustic_backend
     if whisper_model:
         cfg.whisper.model = whisper_model
-    profile = analyze_wav(
-        wav,
-        user_id=user_id,
-        cfg=cfg,
-        transcript_override=transcript,
-        language=language,
-        save=save,
-    )
-    payload = json.dumps(profile.model_dump(mode="json"), indent=2 if pretty else None)
+
+    def progress_cb(pct: int, stage: str) -> None:
+        if progress:
+            click.echo(f"[{pct:3d}%] {stage}", err=True)
+
+    if speakers == "all":
+        mapping = {}
+        for pair in (speaker_map or "").split(","):
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                mapping[k.strip()] = v.strip()
+        diar, profiles = analyze_wav_speakers(
+            wav,
+            base_user_id=user_id,
+            cfg=cfg,
+            language=language,
+            speaker_map=mapping,
+            transcripts={"SPEAKER_00": transcript} if transcript else None,
+            save=save,
+            progress_cb=progress_cb,
+        )
+        payload_obj: object = {
+            "diarization": diar.model_dump(mode="json"),
+            "profiles": [p.model_dump(mode="json") for p in profiles],
+        }
+        all_warnings = [w for p in profiles for w in p.provenance.warnings]
+    else:
+        profile = analyze_wav(
+            wav,
+            user_id=user_id,
+            cfg=cfg,
+            transcript_override=transcript,
+            language=language,
+            save=save,
+            progress_cb=progress_cb,
+        )
+        payload_obj = profile.model_dump(mode="json")
+        all_warnings = profile.provenance.warnings
+    payload = json.dumps(payload_obj, indent=2 if pretty else None)
     if out:
         out.write_text(payload + "\n", encoding="utf-8")
         click.echo(f"Profile written to {out}", err=True)
     if not quiet:
         click.echo(payload)
-    if profile.provenance.warnings:
-        for w in profile.provenance.warnings:
-            click.echo(f"warning: {w}", err=True)
+    for w in dict.fromkeys(all_warnings):
+        click.echo(f"warning: {w}", err=True)
 
 
 if __name__ == "__main__":

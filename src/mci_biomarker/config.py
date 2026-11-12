@@ -20,6 +20,15 @@ class AudioConfig:
     # Pauses: silent gaps >= pause_threshold_s count as pauses (SPEC Track A)
     pause_threshold_s: float = 0.25
     long_pause_threshold_s: float = 1.0
+    # Cluster diarization fallback
+    max_speakers: int = 4
+    cluster_threshold: float = 0.08  # agglomerative cosine distance threshold
+    # Voiceprint auto-matching: cosine distance to an enrolled patient centroid
+    # at or below this counts as the same person. Calibrated on HKCanCor:
+    # same speaker ≈0.00-0.01, different speakers same mic ≈0.10, cross-file
+    # >0.45 — conservative on purpose (a missed match just means manual pick).
+    voiceprint_match_threshold: float = 0.05
+    voiceprint_match_margin: float = 0.02  # best must beat 2nd-best patient by this
 
 
 @dataclass

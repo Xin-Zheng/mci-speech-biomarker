@@ -2801,6 +2801,7 @@ acoustic = [
     { name = "librosa", version = "1.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "opensmile" },
     { name = "praat-parselmouth" },
+    { name = "scikit-learn" },
 ]
 asr = [
     { name = "faster-whisper" },
@@ -2831,6 +2832,7 @@ full = [
     { name = "praat-parselmouth" },
     { name = "pyannote-audio" },
     { name = "pycantonese" },
+    { name = "scikit-learn" },
     { name = "spacy" },
     { name = "torch" },
 ]
@@ -2858,6 +2860,7 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.9" },
     { name = "qwen-asr", marker = "extra == 'asr-qwen'" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
+    { name = "scikit-learn", marker = "extra == 'acoustic'", specifier = ">=1.3" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "soundfile", specifier = ">=0.12" },
     { name = "spacy", marker = "extra == 'nlp'", specifier = ">=3.7" },

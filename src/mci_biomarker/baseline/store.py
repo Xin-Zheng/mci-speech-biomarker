@@ -9,11 +9,12 @@ fewer than `min_baseline_sessions` priors the baseline is reported as
 
 from __future__ import annotations
 
+import json
 import math
 import re
 from pathlib import Path
 
-from ..schemas import BaselineComparison, BiomarkerProfile
+from ..schemas import BaselineComparison, BiomarkerProfile, Patient
 
 # Direction notes for the report (higher ≠ worse for every metric).
 METRIC_DIRECTIONS = {
@@ -139,3 +140,152 @@ def trend_series(profiles: list[BiomarkerProfile]) -> dict:
         for key, val in p.headline_metrics().items():
             metrics.setdefault(key, []).append(val)
     return {"labels": labels, "metrics": metrics, "directions": METRIC_DIRECTIONS}
+
+
+class VoiceprintStore:
+    """Per-patient voiceprint centroids (for speaker auto-matching).
+
+    Stored next to patients.json as mean MFCC/pitch embeddings — derived
+    features, not audio (speech cannot be reconstructed from them), but
+    still biometric identifiers: the file is git-ignored like profiles.
+    """
+
+    MAX_ENROLLMENTS = 20  # rolling centroid over the most recent sessions
+
+    def __init__(self, profile_dir: str | Path):
+        self.path = Path(profile_dir).parent / "voiceprints.json"
+
+    def _load(self) -> dict:
+        if not self.path.exists():
+            return {}
+        return json.loads(self.path.read_text(encoding="utf-8"))
+
+    def _save(self, data: dict) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(data) + "\n", encoding="utf-8")
+
+    def enroll(self, patient_id: str, embedding) -> None:
+        import numpy as np
+
+        patient_id = safe_user_id(patient_id)
+        vec = np.asarray(embedding, dtype=np.float64)
+        norm = float(np.linalg.norm(vec))
+        if norm < 1e-9:
+            return
+        vec = vec / norm
+        data = self._load()
+        rec = data.get(patient_id)
+        if rec and len(rec.get("centroid", [])) == len(vec):
+            count = min(int(rec.get("count", 1)), self.MAX_ENROLLMENTS)
+            centroid = (np.asarray(rec["centroid"]) * count + vec) / (count + 1)
+            count += 1
+        else:
+            centroid, count = vec, 1
+        cnorm = float(np.linalg.norm(centroid))
+        if cnorm > 1e-9:
+            centroid = centroid / cnorm
+        data[patient_id] = {
+            "centroid": [round(float(x), 6) for x in centroid.tolist()],
+            "count": count,
+        }
+        self._save(data)
+
+    def centroids(self) -> dict:
+        import numpy as np
+
+        return {
+            pid: np.asarray(rec["centroid"], dtype=np.float64)
+            for pid, rec in self._load().items()
+            if rec.get("centroid")
+        }
+
+    def delete(self, patient_id: str) -> bool:
+        data = self._load()
+        if data.pop(safe_user_id(patient_id), None) is None:
+            return False
+        self._save(data)
+        return True
+
+
+class PatientStore:
+    """Patient registry (display names/notes) next to the profile JSONLs.
+
+    Patients also exist implicitly: any user_id with saved profiles is a
+    patient even without a registry entry. `list_patients` merges both.
+    """
+
+    def __init__(self, profile_dir: str | Path):
+        self.profile_dir = Path(profile_dir)
+        self.profile_dir.mkdir(parents=True, exist_ok=True)
+        self.registry_path = self.profile_dir.parent / "patients.json"
+        self.profiles = ProfileStore(profile_dir)
+
+    def _load_registry(self) -> dict[str, Patient]:
+        if not self.registry_path.exists():
+            return {}
+        raw = json.loads(self.registry_path.read_text(encoding="utf-8"))
+        return {pid: Patient.model_validate(rec) for pid, rec in raw.items()}
+
+    def _save_registry(self, registry: dict[str, Patient]) -> None:
+        payload = {pid: p.model_dump(mode="json") for pid, p in registry.items()}
+        self.registry_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
+    def upsert_patient(
+        self, patient_id: str, display_name: str = "", notes: str = ""
+    ) -> Patient:
+        patient_id = safe_user_id(patient_id)
+        registry = self._load_registry()
+        existing = registry.get(patient_id)
+        patient = Patient(
+            patient_id=patient_id,
+            display_name=display_name or (existing.display_name if existing else patient_id),
+            notes=notes if notes else (existing.notes if existing else ""),
+            created_at=existing.created_at if existing else Patient(
+                patient_id=patient_id
+            ).created_at,
+        )
+        registry[patient_id] = patient
+        self._save_registry(registry)
+        return patient
+
+    def get_patient(self, patient_id: str) -> Patient | None:
+        patient_id = safe_user_id(patient_id)
+        registry = self._load_registry()
+        if patient_id in registry:
+            return registry[patient_id]
+        if patient_id in self.profiles.list_users():
+            return Patient(patient_id=patient_id, display_name=patient_id)
+        return None
+
+    def delete_patient(self, patient_id: str, delete_profiles: bool = False) -> bool:
+        patient_id = safe_user_id(patient_id)
+        registry = self._load_registry()
+        removed = registry.pop(patient_id, None) is not None
+        if removed:
+            self._save_registry(registry)
+        if delete_profiles:
+            removed = self.profiles.delete_user(patient_id) or removed
+        return removed
+
+    def list_patients(self) -> list[dict]:
+        """Registry ∪ profile owners, each with session stats for the UI."""
+        registry = self._load_registry()
+        ids = sorted(set(registry) | set(self.profiles.list_users()))
+        out: list[dict] = []
+        for pid in ids:
+            patient = registry.get(pid) or Patient(patient_id=pid, display_name=pid)
+            profiles = self.profiles.load_profiles(pid)
+            latest = profiles[-1] if profiles else None
+            out.append(
+                {
+                    **patient.model_dump(mode="json"),
+                    "session_count": len(profiles),
+                    "last_session_at": latest.created_at if latest else None,
+                    "last_language": latest.linguistic.language if latest else None,
+                    "baseline_ready": bool(latest and latest.baseline.baseline_ready),
+                    "flagged_count": len(latest.baseline.flagged) if latest else 0,
+                }
+            )
+        return out

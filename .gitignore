@@ -14,6 +14,8 @@ build/
 data/profiles/*.json
 data/profiles/*.jsonl
 !data/profiles/.gitkeep
+data/patients.json
+data/voiceprints.json
 .env
 .DS_Store
 # External corpus checkout (HKCanCor) — not part of this repo
