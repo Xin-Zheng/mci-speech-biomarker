@@ -72,7 +72,8 @@ class TranscriptSegment(BaseModel):
 class LinguisticFeatures(BaseModel):
     """Track B (SPEC §2): lexical diversity, referential vagueness, disfluency."""
 
-    backend: str  # "faster-whisper" | "manual" | "none"
+    backend: str  # "qwen3-asr" | "sensevoice" | "faster-whisper" | "manual" | "none"
+    language: str = "en"  # "en" | "yue" (Cantonese mode) | "zh" | ...
     transcript: str = ""
     segments: list[TranscriptSegment] = Field(default_factory=list)
     mean_confidence: float | None = None

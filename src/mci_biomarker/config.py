@@ -29,6 +29,13 @@ class WhisperConfig:
     compute_type: str = "int8"
     # Below this mean segment confidence, linguistic metrics are down-weighted (SPEC §4)
     low_confidence_threshold: float = 0.55
+    # ASR routing: "auto" (Cantonese: Qwen3 → SenseVoice → Whisper-yue; else Whisper),
+    # or force one of "qwen3" | "sensevoice" | "whisper".
+    asr_backend: str = "auto"
+    qwen_model: str = "Qwen/Qwen3-ASR-0.6B"
+    sensevoice_model: str = "iic/SenseVoiceSmall"
+    # English-only *.en Whisper checkpoints cannot do Cantonese; yue needs large-v3+
+    yue_whisper_model: str = "large-v3-turbo"
 
 
 @dataclass
@@ -41,6 +48,9 @@ class BaselineConfig:
 
 @dataclass
 class PipelineConfig:
+    # Session language: "en" (default) or "yue" for Cantonese mode (also "zh").
+    # Baselines are only ever compared within the same language.
+    language: str = "en"
     audio: AudioConfig = field(default_factory=AudioConfig)
     whisper: WhisperConfig = field(default_factory=WhisperConfig)
     baseline: BaselineConfig = field(default_factory=BaselineConfig)

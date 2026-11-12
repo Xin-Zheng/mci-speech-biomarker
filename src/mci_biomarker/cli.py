@@ -14,9 +14,17 @@ from .pipeline import analyze_wav
 @click.command()
 @click.argument("wav", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--user-id", default="anonymous", show_default=True, help="Longitudinal user id.")
-@click.option("--transcript", default=None, help="Known transcript (skips Whisper ASR).")
-@click.option("--language", default=None,
-              help="Whisper language code, e.g. en, zh (auto if unset).")
+@click.option("--transcript", default=None, help="Known transcript (skips ASR).")
+@click.option("--language", default="en", show_default=True,
+              help="Session language: en, or yue for Cantonese mode (Qwen3-ASR → "
+              "SenseVoice → Whisper-yue + Cantonese linguistic metrics).")
+@click.option(
+    "--asr-backend",
+    type=click.Choice(["auto", "qwen3", "sensevoice", "whisper"]),
+    default="auto",
+    show_default=True,
+    help="Force an ASR engine instead of the language-aware chain.",
+)
 @click.option("--whisper-model", default=None, help="Override Whisper model, e.g. small, medium.")
 @click.option(
     "--diarization",
@@ -40,7 +48,8 @@ def main(
     wav: Path,
     user_id: str,
     transcript: str | None,
-    language: str | None,
+    language: str,
+    asr_backend: str,
     whisper_model: str | None,
     diarization: str,
     acoustic_backend: str,
@@ -51,6 +60,8 @@ def main(
 ) -> None:
     """Analyze WAV and emit a structured JSON biomarker profile."""
     cfg = PipelineConfig()
+    cfg.language = language
+    cfg.whisper.asr_backend = asr_backend
     cfg.diarization = diarization
     # extract_acoustic: "auto"/"opensmile" try openSMILE; anything else → signal fallback
     cfg.acoustic_backend = acoustic_backend

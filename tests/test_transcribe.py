@@ -31,7 +31,7 @@ def segment(text="hello world", avg_logprob=-0.2):
 
 def test_transcribe_passes_waveform_not_file_path(monkeypatch):
     model = FakeModel([segment()])
-    monkeypatch.setattr(transcribe_module, "_load_model", lambda cfg: model)
+    monkeypatch.setattr(transcribe_module, "_load_whisper_model", lambda model_name, cfg: model)
     speech = np.linspace(-0.1, 0.1, 16000, dtype=np.float64)
 
     text, segments, confidence, backend = transcribe_module.transcribe(
@@ -49,7 +49,7 @@ def test_transcribe_passes_waveform_not_file_path(monkeypatch):
 
 def test_transcribe_resamples_waveform_to_whisper_sample_rate(monkeypatch):
     model = FakeModel([segment()])
-    monkeypatch.setattr(transcribe_module, "_load_model", lambda cfg: model)
+    monkeypatch.setattr(transcribe_module, "_load_whisper_model", lambda model_name, cfg: model)
     speech = np.zeros(8000, dtype=np.float32)
 
     transcribe_module.transcribe(speech, 8000, WhisperConfig())
@@ -64,7 +64,7 @@ def test_transcribe_failure_returns_empty_transcript_with_warning(monkeypatch):
         raise TypeError("open() got an unexpected keyword argument 'metadata_errors'")
 
     model = FakeModel(failing_segments())
-    monkeypatch.setattr(transcribe_module, "_load_model", lambda cfg: model)
+    monkeypatch.setattr(transcribe_module, "_load_whisper_model", lambda model_name, cfg: model)
     warnings: list[str] = []
 
     text, segments, confidence, backend = transcribe_module.transcribe(

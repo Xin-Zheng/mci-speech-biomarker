@@ -13,6 +13,14 @@ import re
 from collections import Counter
 
 from ..schemas import LinguisticFeatures, TranscriptSegment
+from .cantonese import (
+    FILLERS_YUE,
+    FUNCTION_YUE,
+    PRONOUNS_YUE,
+    VAGUE_YUE,
+    is_cjk,
+    tokenize_cjk,
+)
 
 PRONOUNS = {
     "i", "me", "my", "mine", "myself", "we", "us", "our", "ours", "ourselves",
@@ -39,10 +47,12 @@ FUNCTION_WORDS = {
     "know", "mean", "actually", "basically", "really", "right",
 }
 TOKEN_RE = re.compile(r"[a-z']+")
-SENT_RE = re.compile(r"[.!?]+|\n+")
+SENT_RE = re.compile(r"[.!?。！？]+|\n+")
 
 
-def tokenize(text: str) -> list[str]:
+def tokenize(text: str, language: str = "en") -> list[str]:
+    if is_cjk(language):
+        return tokenize_cjk(text)
     return TOKEN_RE.findall(text.lower())
 
 
@@ -53,20 +63,28 @@ def extract_linguistic(
     backend: str = "manual",
     speech_duration_s: float | None = None,
     low_confidence_threshold: float = 0.55,
+    language: str = "en",
 ) -> LinguisticFeatures:
     segments = segments or []
-    tokens = tokenize(transcript)
+    cjk = is_cjk(language)
+    tokens = tokenize(transcript, language)
     n = len(tokens)
     low_conf = bool(mean_confidence is not None and mean_confidence < low_confidence_threshold)
-    noun_count, pronoun_count = _count_nouns_pronouns(transcript, tokens)
-    vague = sum(1 for t in tokens if t in VAGUE_WORDS)
-    fillers = sum(1 for t in tokens if t in FILLERS)
+    if cjk:
+        noun_count, pronoun_count = _count_nouns_pronouns_cjk(tokens)
+        vague = sum(1 for t in tokens if t in VAGUE_YUE)
+        fillers = sum(1 for t in tokens if t in FILLERS_YUE)
+    else:
+        noun_count, pronoun_count = _count_nouns_pronouns(transcript, tokens)
+        vague = sum(1 for t in tokens if t in VAGUE_WORDS)
+        fillers = sum(1 for t in tokens if t in FILLERS)
     sentences = [s for s in SENT_RE.split(transcript) if s.strip()]
     wpm = None
     if speech_duration_s and speech_duration_s > 0:
         wpm = round(n / (speech_duration_s / 60.0), 2)
     return LinguisticFeatures(
         backend=backend,
+        language=language,
         transcript=transcript,
         segments=segments,
         mean_confidence=mean_confidence,
@@ -147,6 +165,16 @@ def _count_nouns_pronouns(transcript: str, tokens: list[str]) -> tuple[int, int]
     return nouns, pronouns
 
 
+def _count_nouns_pronouns_cjk(tokens: list[str]) -> tuple[int, int]:
+    pronouns = sum(1 for t in tokens if t in PRONOUNS_YUE)
+    nouns = sum(
+        1
+        for t in tokens
+        if t not in PRONOUNS_YUE and t not in FUNCTION_YUE and t not in FILLERS_YUE
+    )
+    return nouns, pronouns
+
+
 def _spacy_counts(transcript: str) -> tuple[int, int] | None:
     try:
         import spacy  # optional dep: pip install "mci-biomarker[nlp]"
@@ -169,10 +197,14 @@ def _repeated_rate(tokens: list[str]) -> float | None:
     return reps / len(tokens)
 
 
-def top_repetitions(transcript: str, k: int = 5) -> list[tuple[str, int]]:
+def top_repetitions(
+    transcript: str, k: int = 5, language: str = "en"
+) -> list[tuple[str, int]]:
     """Most repeated content words (perseveration / topic-drift aid)."""
+    stop = FUNCTION_YUE if is_cjk(language) else FUNCTION_WORDS
+    min_len = 1 if is_cjk(language) else 2
     counts = Counter(
-        t for t in tokenize(transcript) if t not in FUNCTION_WORDS and len(t) > 2
+        t for t in tokenize(transcript, language) if t not in stop and len(t) > min_len
     )
     return counts.most_common(k)
 

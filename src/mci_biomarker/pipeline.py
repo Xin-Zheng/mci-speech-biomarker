@@ -30,6 +30,7 @@ def analyze_wav(
 ) -> BiomarkerProfile:
     """Run the full dual-track pipeline on one recording."""
     cfg = cfg or PipelineConfig()
+    lang = (language or cfg.language or "en").lower()
     t0 = time.perf_counter()
     warnings: list[str] = []
     wav_path = Path(wav_path)
@@ -49,10 +50,11 @@ def analyze_wav(
             mean_confidence=None,
             backend="manual",
             speech_duration_s=vad.speech_duration_s,
+            language=lang,
         )
     else:
         text, segments, mean_conf, asr_backend = transcribe(
-            speech, sr, cfg.whisper, language=language, warnings=warnings
+            speech, sr, cfg.whisper, language=lang, warnings=warnings
         )
         linguistic = extract_linguistic(
             text,
@@ -61,6 +63,7 @@ def analyze_wav(
             backend=asr_backend,
             speech_duration_s=vad.speech_duration_s,
             low_confidence_threshold=cfg.whisper.low_confidence_threshold,
+            language=lang,
         )
     if linguistic.low_confidence:
         warnings.append(

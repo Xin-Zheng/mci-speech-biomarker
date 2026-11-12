@@ -63,7 +63,8 @@ uv run mci-analyze recording.wav --transcript "The boy is taking cookies from th
 # Save the session to the longitudinal store and write the profile to a file
 uv run mci-analyze recording.wav --user-id demo --save --out profile.json
 
-# Useful flags: --whisper-model small|medium  --language zh
+# Useful flags: --whisper-model small|medium  --language yue (Cantonese mode)
+#               --asr-backend qwen3|sensevoice|whisper
 #               --diarization energy|pyannote  --acoustic-backend opensmile|signal
 ```
 
@@ -104,6 +105,37 @@ src/mci_biomarker/
 ├── baseline/             # JSONL history + z-score anomaly flags
 └── web/                  # FastAPI app (`mci-serve`) + single-page UI
 ```
+
+## 🇭🇰 Cantonese mode 粵語模式 (`--language yue`)
+
+The acoustic track (eGeMAPS, pauses, speech rate) is language-independent and
+works for Cantonese out of the box. Cantonese mode switches the speech-to-text
+and linguistic tracks:
+
+```bash
+uv pip install -e ".[cantonese]"        # PyCantonese word segmentation
+uv pip install -e ".[asr-qwen]"         # recommended ASR (or .[asr-sensevoice])
+
+uv run mci-analyze recording.wav --language yue --user-id demo --pretty
+# Web UI: pick 「粵語 (Cantonese)」 in the Language dropdown
+```
+
+- **ASR chain (auto):** [Qwen3-ASR](https://github.com/QwenLM/Qwen3-ASR)
+  (Apache-2.0, preserves spoken Cantonese characters like 佢/嘅/嘢) →
+  [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) → faster-whisper
+  with the `yue` token (large-v3 generation; English-only `*.en` models are
+  auto-switched). Force one engine with `--asr-backend qwen3|sensevoice|whisper`.
+  First use downloads the model (~1–4 GB) from Hugging Face.
+- **Why not Whisper alone?** Whisper often rewrites spoken Cantonese into
+  standard written Chinese （佢→他、嘅→的）, erasing exactly the colloquial
+  pronouns and vague words our biomarkers measure.
+- **Linguistic metrics** use Cantonese segmentation (PyCantonese, with a
+  built-in max-match fallback) and Cantonese lexicons: pronouns 我/你/佢/哋，
+  vague words 嘢/嗰樣嘢， fillers 嗯/即係. English code-switching is handled.
+- **Baselines never mix languages** — English and Cantonese sessions for the
+  same user form separate baselines.
+- **Tonal caveat:** Cantonese has 6 lexical tones, so interpret F₀ mean/std
+  against the speaker's own Cantonese baseline, not English norms.
 
 ### Optional: speaker diarization (pyannote)
 

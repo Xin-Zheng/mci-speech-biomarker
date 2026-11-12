@@ -38,6 +38,17 @@ acoustic = [
 asr = [
     "faster-whisper>=1.0",
 ]
+# Cantonese mode (--language yue): proper Cantonese word segmentation.
+cantonese = [
+    "pycantonese>=3.4",
+]
+# Cantonese-first ASR engines (pull in torch — install the one you need).
+asr-qwen = [
+    "qwen-asr",
+]
+asr-sensevoice = [
+    "funasr>=1.3.26",
+]
 diarize = [
     "pyannote.audio>=3.1",
     "torch>=2.0",
@@ -46,7 +57,7 @@ nlp = [
     "spacy>=3.7",
 ]
 full = [
-    "mci-biomarker[acoustic,asr,diarize,nlp]",
+    "mci-biomarker[acoustic,asr,diarize,nlp,cantonese]",
 ]
 dev = [
     "pytest>=8",

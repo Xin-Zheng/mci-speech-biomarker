@@ -46,6 +46,7 @@
     <div class="row" style="margin-top:14px">
       <div><label for="file">Audio file</label><input id="file" type="file" accept=".wav,.mp3,.m4a,.flac,.ogg,audio/*" /></div>
       <div><label for="user">User ID (longitudinal profile)</label><input id="user" type="text" value="demo" /></div>
+      <div><label for="language">Language 語言</label><select id="language"><option value="en" selected>English</option><option value="yue">粵語 (Cantonese)</option><option value="zh">中文 (Mandarin)</option></select></div>
       <label style="margin-bottom:10px"><input id="save" type="checkbox" checked /> Save to baseline history</label>
       <button id="analyze">Analyze speech</button>
       <button id="demo" class="secondary">Try demo transcript</button>
@@ -140,6 +141,7 @@ function renderProfile(p){
     : `<p class="muted">Baseline still forming — z-scores appear after enough sessions.</p>`;
   $("transcriptOut").textContent = p.linguistic?.transcript || "(no transcript — install faster-whisper or paste a transcript above)";
   $("prov").innerHTML =
+    `<span class="pill">language: ${p.linguistic.language||"en"}</span>` +
     ["vad_backend","acoustic_backend","asr_backend"].map(k=>`<span class="pill">${k}: ${p.provenance[k]}</span>`).join("") +
     `<span class="pill">audio_retained: ${p.provenance.audio_retained}</span>` +
     (p.provenance.warnings||[]).map(w=>`<span class="pill bad">${w}</span>`).join("") +
@@ -186,6 +188,7 @@ async function analyze(){
   try{
     const fd = new FormData();
     fd.append("file", f); fd.append("user_id", $("user").value||"anonymous");
+    fd.append("language", $("language").value||"en");
     fd.append("transcript", $("transcript").value); fd.append("save", $("save").checked);
     const r = await fetch("/api/analyze", {method:"POST", body:fd});
     const d = await r.json().catch(()=>({detail:"Invalid server response"}));
@@ -207,9 +210,14 @@ $("download").addEventListener("click", ()=>{
   a.download=`biomarker-${lastProfile.user_id}-${lastProfile.profile_id}.json`; a.click();
 });
 $("demo").addEventListener("click", ()=>{
-  $("transcript").value = "The mother is washing dishes at the sink and the water is overflowing. " +
-    "A boy is standing on a stool taking cookies from the jar, and a girl is reaching up for that thing. " +
-    "Um, the stool looks like it might fall over. There are cups and plates on the counter near the window.";
+  if($("language").value === "yue"){
+    $("transcript").value = "個媽媽喺廚房度洗碗，水喉啲水流到成地都係。個男仔企喺張凳上面攞個罐入面啲曲奇，" +
+      "佢妹妹喺隔籬望住佢。嗯，張凳好似就嚟冧咁。窗邊有啲杯同埋碟放喺枱上面。";
+  } else {
+    $("transcript").value = "The mother is washing dishes at the sink and the water is overflowing. " +
+      "A boy is standing on a stool taking cookies from the jar, and a girl is reaching up for that thing. " +
+      "Um, the stool looks like it might fall over. There are cups and plates on the counter near the window.";
+  }
   setStatus("Demo transcript filled — now choose any short .wav and click Analyze.");
 });
 const drop = $("drop");

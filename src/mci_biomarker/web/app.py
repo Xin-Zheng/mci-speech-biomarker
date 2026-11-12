@@ -44,6 +44,7 @@ async def analyze(
     file: UploadFile = File(...),
     user_id: str = Form("anonymous"),
     transcript: str = Form(""),
+    language: str = Form("en"),
     save: bool = Form(True),
 ) -> JSONResponse:
     name = (file.filename or "upload.wav").lower()
@@ -67,6 +68,7 @@ async def analyze(
             user_id=user_id or "anonymous",
             cfg=cfg,
             transcript_override=transcript.strip() or None,
+            language=(language or "en").lower(),
             save=save,
         )
         profile.source_filename = file.filename or profile.source_filename

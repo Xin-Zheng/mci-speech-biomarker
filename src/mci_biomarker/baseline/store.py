@@ -78,6 +78,9 @@ def compare_to_baseline(
     z_threshold: float = 2.0,
 ) -> BaselineComparison:
     """Rolling z-scores of headline metrics vs prior sessions for this user."""
+    # Never mix languages in one baseline: lexical metrics are not comparable
+    # across e.g. English and Cantonese sessions.
+    priors = [p for p in priors if p.linguistic.language == profile.linguistic.language]
     current = profile.headline_metrics()
     if len(priors) < min_sessions:
         return BaselineComparison(
